@@ -1,103 +1,105 @@
-// Supabase Configuration
-const SUPABASE_URL = 'https://ikahekmyqvdugiljcrlp.supabase.co';   // GANTI
-const SUPABASE_ANON_KEY = 'sb_publishable_GjCb5njeiL6W8_HKA-OrLQ_e8dk7IIL'; // GANTI
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ===================== SUPABASE CONFIG (PRODUCTION) =====================
+var SUPABASE_URL = 'https://ikahekmyqvdugiljcrlp.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_GjCb5njeiL6W8_HKA-OrLQ_e8dk7IIL';
 
-// Global variables
-let currentUser = null;
-let workingDirHandle = null;
-let logoTokoDihapus = false;
+var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+    }
+  }
+});
 
-// ===================== SUPABASE FUNCTIONS =====================
+var currentUser = null;
+var workingDirHandle = null;
+window.logoTokoDihapus = false;
+window.cachedSettings = null;
+
+// ---- DATABASE FUNCTIONS ----
 async function getSettings() {
-  const { data } = await supabaseClient.from('settings').select('*').eq('id', 1).single();
-  return data || {};
+  var result = await supabaseClient.from('settings').select('*').eq('id', 1).single();
+  return result.data || {};
 }
 
-async function updateSettings(s) { await supabaseClient.from('settings').upsert({ id: 1, ...s }); }
+async function updateSettings(s) {
+  await supabaseClient.from('settings').upsert({ id: 1, ...s });
+}
 
 async function getAllProducts() {
-  const { data } = await supabaseClient.from('products').select('*').order('nama');
-  return data || [];
+  var result = await supabaseClient.from('products').select('*').order('nama');
+  return result.data || [];
 }
 
 async function getProductByBarcode(barcode) {
-  const { data } = await supabaseClient.from('products').select('*').eq('barcode', barcode).single();
-  return data || null;
+  var result = await supabaseClient.from('products').select('*').eq('barcode', barcode).single();
+  return result.data || null;
 }
 
 async function upsertProduct(p) {
-  const { error } = await supabaseClient.from('products').upsert(p);
-  if (error) throw error;
+  // Perbaikan: tambahkan onConflict agar update jika barcode sudah ada
+  var result = await supabaseClient.from('products').upsert(p, { onConflict: 'barcode' });
+  if (result.error) throw result.error;
 }
 
 async function deleteProduct(barcode) {
-  const { error } = await supabaseClient.from('products').delete().eq('barcode', barcode);
-  if (error) throw error;
+  var result = await supabaseClient.from('products').delete().eq('barcode', barcode);
+  if (result.error) throw result.error;
 }
 
 async function getAllTransactions(start, end) {
-  let q = supabaseClient.from('transactions').select('*').order('tanggal', { ascending: false });
+  var q = supabaseClient.from('transactions').select('*').order('tanggal', { ascending: false });
   if (start) q = q.gte('tanggal', start);
-  if (end) { const e = new Date(end); e.setDate(e.getDate()+1); q = q.lt('tanggal', e.toISOString()); }
-  const { data } = await q;
-  return data || [];
+  if (end) {
+    var e = new Date(end);
+    e.setDate(e.getDate() + 1);
+    q = q.lt('tanggal', e.toISOString());
+  }
+  var result = await q;
+  return result.data || [];
 }
 
 async function getTransaction(noInv) {
-  const { data } = await supabaseClient.from('transactions').select('*').eq('no_invoice', noInv).single();
-  return data || null;
+  var result = await supabaseClient.from('transactions').select('*').eq('no_invoice', noInv).single();
+  return result.data || null;
 }
 
 async function insertTransaction(trx) {
-  const { error } = await supabaseClient.from('transactions').insert(trx);
-  if (error) throw error;
+  var result = await supabaseClient.from('transactions').insert(trx);
+  if (result.error) throw result.error;
 }
 
 async function deleteTransaction(noInv) {
-  const { error } = await supabaseClient.from('transactions').delete().eq('no_invoice', noInv);
-  if (error) throw error;
+  var result = await supabaseClient.from('transactions').delete().eq('no_invoice', noInv);
+  if (result.error) throw result.error;
 }
 
 async function uploadInvoicePDF(no, blob) {
-  await supabaseClient.storage.from('invoices').upload(`${no}.pdf`, blob, { contentType:'application/pdf', upsert:true });
+  await supabaseClient.storage.from('invoices').upload(no + '.pdf', blob, { 
+    contentType: 'application/pdf', 
+    upsert: true 
+  });
 }
 
 async function getInvoiceURL(no) {
-  const { data } = supabaseClient.storage.from('invoices').getPublicUrl(`${no}.pdf`);
-  return data?.publicUrl || null;
+  var result = supabaseClient.storage.from('invoices').getPublicUrl(no + '.pdf');
+  return result.data ? result.data.publicUrl : null;
 }
 
 function toBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function() { resolve(reader.result); };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-// ===================== FUNGSI BARU UNTUK UPLOAD FOTO PRODUK =====================
-async function uploadProductPhoto(file) {
-  const fileName = `${Date.now()}_${file.name}`;
-  const { data, error } = await supabaseClient.storage
-    .from('product-photos')
-    .upload(fileName, file, { cacheControl: '3600', upsert: true });
-
-  if (error) throw error;
-
-  // Dapatkan URL publik
-  const { data: urlData } = supabaseClient.storage
-    .from('product-photos')
-    .getPublicUrl(fileName);
-
-  return urlData.publicUrl;
-}
-
-async function removeProductPhoto(url) {
-  // Ekstrak nama file dari URL
-  const fileName = url.split('/').pop();
-  if (fileName) {
-    await supabaseClient.storage.from('product-photos').remove([fileName]);
-  }
+function invalidateSettingsCache() {
+  window.cachedSettings = null;
+  if (typeof appSettings !== 'undefined') { appSettings = {}; }
 }

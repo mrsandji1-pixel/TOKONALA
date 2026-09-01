@@ -1,4 +1,4 @@
-// ===================== LAPORAN.JS (Dengan Rincian Diskon + Admin + BT) =====================
+// ===================== LAPORAN.JS =====================
 let chartInstance = null;
 let topProductsChart = null;
 
@@ -37,42 +37,66 @@ async function muatLaporan() {
   const all = await getAllTransactions(a + 'T00:00:00', b + 'T23:59:59');
   const tbody = document.querySelector('#reportTable tbody');
   tbody.innerHTML = '';
-  const isAdmin = currentUser && currentUser.role === 'admin';
   if (!all.length) {
-    tbody.innerHTML = '<tr><td colspan="5">Tidak ada</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8">Tidak ada</td></tr>';
   } else {
     all.forEach(t => {
       const row = tbody.insertRow();
-      // Tombol hapus hanya untuk admin
-      const hapusBtn = isAdmin ? `<button class="btn-sm btn-danger" onclick="hapusTransaksi('${t.no_invoice}')">🗑</button>` : '';
       row.innerHTML = `<td>${t.no_invoice}</td><td>${new Date(t.tanggal).toLocaleDateString('id-ID')}</td><td>${t.customer || '-'}</td><td>Rp${t.total.toLocaleString('id')}</td><td>
-        <button class="btn-sm" onclick="viewInvoice('${t.no_invoice}')">👁️</button>
-        <button class="btn-sm" onclick="cetakUlang('${t.no_invoice}')">🖨️ PDF</button>
-        <button class="btn-sm" onclick="cetakUlangBT('${t.no_invoice}')">🖨️ BT</button>
-        ${hapusBtn}
-      </td>`;
+  <button class="btn-sm" onclick="viewInvoice('${t.no_invoice}')">👁️</button>
+  <button class="btn-sm" onclick="cetakUlang('${t.no_invoice}')">🖨️ PDF</button>
+  <button class="btn-sm" onclick="cetakUlangBT('${t.no_invoice}')">🖨️ BT</button>
+  ${(typeof activeFeatures !== 'undefined' && activeFeatures.emailstruk) ? `<button class="btn-sm" onclick="emailStrukDariLaporan('${t.no_invoice}')">📧</button>` : ''}
+  ${(typeof activeFeatures !== 'undefined' && activeFeatures.whatsapp) ? `<button class="btn-sm" onclick="whatsappStruk('${t.no_invoice}')">📱</button>` : ''}
+  ${(currentUser && currentUser.role === 'admin') ? `<button class="btn-sm btn-danger" onclick="hapusTransaksi('${t.no_invoice}')">🗑</button>` : ''}
+</td>`;
     });
   }
   document.getElementById('totalTransaksi').textContent = all.length;
   document.getElementById('totalPendapatan').textContent = 'Rp' + all.reduce((s, t) => s + t.total, 0).toLocaleString('id');
   renderChart(all, 'daily', a, b);
   renderTopProductsChart(all);
+  checkLowStock();
 }
 
-// ========== CETAK ULANG BLUETOOTH (DENGAN RINCIAN DISKON) ==========
+// ========== LOW STOCK CHECK ==========
+async function checkLowStock() {
+  try {
+    const { data: products } = await supabaseClient
+      .from('products')
+      .select('*')
+      .order('stok');
+    
+    const lowStockProducts = (products || []).filter(p => p.stok <= (p.min_stok || 10));
+    
+    const alertDiv = document.getElementById('lowStockAlert');
+    const listEl = document.getElementById('lowStockList');
+    
+    if (!alertDiv || !listEl) return;
+    
+    if (lowStockProducts.length === 0) {
+      alertDiv.style.display = 'none';
+      return;
+    }
+    
+    alertDiv.style.display = 'block';
+    listEl.innerHTML = lowStockProducts.map(p => 
+      `<li>${p.nama} - Stok: <b style="color:#e53935;">${p.stok}</b> (Min: ${p.min_stok || 10}) <button class="btn-sm" onclick="document.querySelector('[data-page=inventory]').click(); document.getElementById('prodBarcode').value='${p.barcode}'; cariAtauTambahProduk();" style="margin-left:8px;">📦 Restock</button></li>`
+    ).join('');
+  } catch (e) {
+    console.error('Low stock check failed:', e);
+  }
+}
+
 async function cetakUlangBT(noInv) {
   if (!bluetoothDevice || !bluetoothCharacteristic) {
     alert('Printer Bluetooth tidak terhubung. Sambungkan dulu di tab Setting.');
     return;
   }
-
   const trx = await getTransaction(noInv);
   if (!trx) { alert('Transaksi tidak ditemukan'); return; }
-
   const toko = await getSettings();
   const cart = trx.items || [];
-
-  // Hitung subtotal1 (setelah diskon per item)
   const subtotal1 = cart.reduce((sum, item) => {
     const sub = item.harga * item.qty;
     const diskon = item.diskon || 0;
@@ -82,22 +106,11 @@ async function cetakUlangBT(noInv) {
   const grandTotal = subtotal1 - totalDiskon;
   const bayar = trx.bayar || 0;
   const kembali = trx.kembali || 0;
-
-  // Gunakan fungsi dari transaksi.js (pastikan buatStrukTeks tersedia)
-  if (typeof buatStrukTeks === 'function') {
-    const teks = buatStrukTeks(cart, subtotal1, totalDiskon, grandTotal, bayar, kembali, toko, trx.no_invoice, trx.customer);
-    await cetakStrukKePrinter(toko.logo || null, teks);
-  } else {
-    alert('Fungsi buatStrukTeks tidak ditemukan. Pastikan transaksi.js sudah dimuat.');
-  }
+  const teks = buatStrukTeks(cart, subtotal1, totalDiskon, grandTotal, bayar, kembali, toko, trx.no_invoice, trx.customer);
+  await cetakStrukKePrinter(toko.logo || null, teks);
 }
 
-// ========== HAPUS TRANSAKSI (ADMIN SAJA) ==========
 async function hapusTransaksi(noInv) {
-  if (!currentUser || currentUser.role !== 'admin') {
-    alert('Hanya admin yang dapat menghapus transaksi.');
-    return;
-  }
   if (!confirm(`Hapus transaksi ${noInv}? Stok akan dikembalikan.`)) return;
   const trx = await getTransaction(noInv);
   if (!trx) return alert('Transaksi tidak ditemukan');
@@ -115,115 +128,53 @@ async function hapusTransaksi(noInv) {
   } catch (e) { alert('Gagal menghapus: ' + e.message); }
 }
 
-// ========== GENERATE PDF DENGAN RINCIAN DISKON ==========
-function generateInvoicePDF(trx) {
-  const { jsPDF } = window.jspdf;
-  const lebarKertas = 80;
-  const marginKiri = 3, marginKanan = 3;
-  const xItem = marginKiri, xQty = lebarKertas * 0.4, xHarga = lebarKertas * 0.65, xSubtotal = lebarKertas - marginKanan;
-
-  // Hitung subtotal1 (setelah diskon item) dari items
-  const cart = trx.items || [];
-  const subtotal1 = cart.reduce((sum, i) => sum + (i.harga * i.qty) - (i.diskon || 0), 0);
-  const totalDiskon = trx.totalDiskon || 0;
-
-  let tinggiHeader = 28;
-  const tinggiItem = cart.length * 5;
-  const tinggiDiskonBaris = totalDiskon > 0 ? 5 : 0;
-  const tinggiTotalBayar = 20 + tinggiDiskonBaris;
-  const tinggiFooter = trx.toko_footer ? 12 : 0;
-  const marginBawah = 10;
-  const tinggiTotal = tinggiHeader + tinggiItem + tinggiTotalBayar + tinggiFooter + marginBawah;
-
-  const doc = new jsPDF({ unit: 'mm', format: [lebarKertas, tinggiTotal] });
-  let y = 8;
-
-  doc.setFontSize(9);
-  doc.text(trx.toko_nama || 'TOKO', marginKiri, y);
-  doc.setFontSize(7);
-  y += 5;
-  if (trx.toko_alamat) { doc.text(trx.toko_alamat, marginKiri, y); y += 5; }
-  doc.text('No: ' + trx.no_invoice, marginKiri, y); y += 5;
-  doc.text('Tanggal: ' + new Date(trx.tanggal).toLocaleString('id-ID'), marginKiri, y); y += 5;
-  doc.text('Customer: ' + (trx.customer || '-'), marginKiri, y); y += 8;
-
-  doc.text('Item', xItem, y);
-  doc.text('Qty', xQty, y, { align: 'center' });
-  doc.text('Harga', xHarga, y, { align: 'right' });
-  doc.text('Subtotal', xSubtotal, y, { align: 'right' });
-  y += 4; doc.line(marginKiri, y, xSubtotal, y); y += 3;
-
-  cart.forEach(item => {
-    const sub = item.harga * item.qty;
-    const netto = sub - (item.diskon || 0);
-    doc.text(item.nama, xItem, y, { maxWidth: xQty - xItem - 2 });
-    doc.text(item.qty.toString(), xQty, y, { align: 'center' });
-    doc.text('Rp' + item.harga.toLocaleString('id'), xHarga, y, { align: 'right' });
-    doc.text('Rp' + netto.toLocaleString('id'), xSubtotal, y, { align: 'right' });
-    if (item.diskon) {
-      y += 4;
-      doc.setFontSize(6);
-      doc.text(`  Diskon item: -Rp${item.diskon.toLocaleString('id')}`, xItem + 5, y);
-      doc.setFontSize(7);
-    }
-    y += 5;
-  });
-  doc.line(marginKiri, y, xSubtotal, y); y += 4;
-
-  // Subtotal1
-  doc.text('Subtotal:', xItem, y);
-  doc.text('Rp' + subtotal1.toLocaleString('id'), xSubtotal, y, { align: 'right' });
-  y += 5;
-
-  // Diskon total (jika ada)
-  if (totalDiskon > 0) {
-    doc.text('Diskon:', xItem, y);
-    doc.text('-Rp' + totalDiskon.toLocaleString('id'), xSubtotal, y, { align: 'right' });
-    y += 5;
-  }
-
-  // Grand Total
-  doc.setFontSize(9);
-  doc.text('TOTAL:', xItem, y);
-  doc.text('Rp' + trx.total.toLocaleString('id'), xSubtotal, y, { align: 'right' });
-  y += 6;
-
-  doc.setFontSize(8);
-  doc.text('Bayar:', xItem, y);
-  doc.text('Rp' + trx.bayar.toLocaleString('id'), xSubtotal, y, { align: 'right' });
-  y += 5;
-  doc.text('Kembali:', xItem, y);
-  doc.text('Rp' + trx.kembali.toLocaleString('id'), xSubtotal, y, { align: 'right' });
-  y += 5;
-
-  if (trx.toko_footer) {
-    doc.setFontSize(7);
-    doc.text(trx.toko_footer, lebarKertas / 2, y, { align: 'center' });
-  }
-
-  return doc.output('blob');
-}
-
-// ========== VIEW INVOICE (FALLBACK) ==========
 async function viewInvoice(noInv) {
-  const url = await getInvoiceURL(noInv);
-  if (url) {
-    window.open(url, '_blank');
+  var trx = await getTransaction(noInv);
+  if (!trx) {
+    var result = await supabaseClient.from('saved_orders').select('*').eq('no_pesanan', noInv).single();
+    trx = result.data;
+    if (!trx) return alert('Transaksi tidak ditemukan');
+    
+    var info = '📋 Pesanan: ' + trx.no_pesanan + '\n';
+    info += '💰 Total: Rp' + (trx.total || 0).toLocaleString('id') + '\n';
+    info += '📝 Dibuat: ' + new Date(trx.created_at).toLocaleString('id-ID') + ' oleh ' + (trx.created_by || '-') + '\n';
+    if (trx.modified_by) {
+      info += '✏️ Diubah: ' + new Date(trx.modified_at).toLocaleString('id-ID') + ' oleh ' + trx.modified_by + '\n';
+    }
+    if (trx.closed_by) {
+      info += '🔒 Dibayar: ' + new Date(trx.closed_at).toLocaleString('id-ID') + ' oleh ' + trx.closed_by + '\n';
+    }
+    if (trx.customer) info += '👤 Customer: ' + trx.customer + '\n';
+    if (trx.items) {
+      info += '\n📦 Items:\n';
+      trx.items.forEach(function(i) {
+        info += '- ' + i.nama + ' x' + i.qty + ' @Rp' + (i.harga || 0).toLocaleString('id') + '\n';
+      });
+    }
+    alert(info);
     return;
   }
-
-  const trx = await getTransaction(noInv);
-  if (!trx) return alert('Transaksi tidak ditemukan');
-  const toko = await getSettings();
-  trx.toko_nama = toko.nama;
-  trx.toko_alamat = toko.alamat;
-  trx.toko_footer = toko.footer;
-  const blob = generateInvoicePDF(trx);
-  const blobUrl = URL.createObjectURL(blob);
-  window.open(blobUrl, '_blank');
+  
+  var info = '🧾 Invoice: ' + trx.no_invoice + '\n';
+  info += '📅 Tanggal: ' + new Date(trx.tanggal).toLocaleString('id-ID') + '\n';
+  info += '💰 Total: Rp' + (trx.total || 0).toLocaleString('id') + '\n';
+  info += '💵 Bayar: Rp' + (trx.bayar || 0).toLocaleString('id') + '\n';
+  info += '🔄 Kembali: Rp' + (trx.kembali || 0).toLocaleString('id') + '\n';
+  if (trx.created_by) {
+    info += '👤 Kasir: ' + trx.created_by + '\n';
+  }
+  if (trx.customer) info += '👤 Customer: ' + trx.customer + '\n';
+  
+  if (trx.items) {
+    info += '\n📦 Items:\n';
+    trx.items.forEach(function(i) {
+      info += '- ' + i.nama + ' x' + i.qty + ' @Rp' + (i.harga || 0).toLocaleString('id') + '\n';
+    });
+  }
+  
+  alert(info);
 }
 
-// ========== CETAK ULANG (FALLBACK) ==========
 async function cetakUlang(noInv) {
   const url = await getInvoiceURL(noInv);
   if (url) {
@@ -231,20 +182,53 @@ async function cetakUlang(noInv) {
     if (pw) pw.addEventListener('load', () => pw.print(), { once: true });
     return;
   }
-
   const trx = await getTransaction(noInv);
   if (!trx) return alert('Transaksi tidak ditemukan');
   const toko = await getSettings();
-  trx.toko_nama = toko.nama;
-  trx.toko_alamat = toko.alamat;
-  trx.toko_footer = toko.footer;
+  trx.toko_nama = toko.nama; trx.toko_alamat = toko.alamat; trx.toko_footer = toko.footer;
   const blob = generateInvoicePDF(trx);
   const blobUrl = URL.createObjectURL(blob);
   const pw = window.open(blobUrl, '_blank');
   if (pw) pw.addEventListener('load', () => pw.print(), { once: true });
 }
 
-// ========== CHART ==========
+function generateInvoicePDF(trx) {
+  const { jsPDF } = window.jspdf;
+  const lebarKertas = 80;
+  const marginKiri = 3, marginKanan = 3;
+  const xItem = marginKiri, xQty = lebarKertas * 0.4, xHarga = lebarKertas * 0.65, xSubtotal = lebarKertas - marginKanan;
+  let tinggiHeader = 28;
+  const tinggiItem = (trx.items || []).length * 5;
+  const tinggiTotalBayar = 15;
+  const tinggiFooter = trx.toko_footer ? 12 : 0;
+  const tinggiTotal = tinggiHeader + tinggiItem + tinggiTotalBayar + tinggiFooter + 10;
+  const doc = new jsPDF({ unit: 'mm', format: [lebarKertas, tinggiTotal] });
+  let y = 8;
+  doc.setFontSize(9); doc.text(trx.toko_nama || 'TOKO', marginKiri, y);
+  doc.setFontSize(7); y += 5;
+  if (trx.toko_alamat) { doc.text(trx.toko_alamat, marginKiri, y); y += 5; }
+  doc.text('No: ' + trx.no_invoice, marginKiri, y); y += 5;
+  doc.text('Tanggal: ' + new Date(trx.tanggal).toLocaleString('id-ID'), marginKiri, y); y += 5;
+  doc.text('Customer: ' + (trx.customer || '-'), marginKiri, y); y += 8;
+  doc.text('Item', xItem, y); doc.text('Qty', xQty, y, { align: 'center' }); doc.text('Harga', xHarga, y, { align: 'right' }); doc.text('Subtotal', xSubtotal, y, { align: 'right' });
+  y += 4; doc.line(marginKiri, y, xSubtotal, y); y += 3;
+  (trx.items || []).forEach(item => {
+    const netto = (item.harga * item.qty) - (item.diskon || 0);
+    doc.text(item.nama, xItem, y, { maxWidth: xQty - xItem - 2 });
+    doc.text(item.qty.toString(), xQty, y, { align: 'center' });
+    doc.text('Rp' + item.harga.toLocaleString('id'), xHarga, y, { align: 'right' });
+    doc.text('Rp' + netto.toLocaleString('id'), xSubtotal, y, { align: 'right' });
+    if (item.diskon) { y += 4; doc.setFontSize(6); doc.text('  Diskon item: -Rp' + item.diskon.toLocaleString('id'), xItem + 5, y); doc.setFontSize(7); }
+    y += 5;
+  });
+  doc.line(marginKiri, y, xSubtotal, y); y += 4;
+  doc.text('Total:', xItem, y); doc.text('Rp' + trx.total.toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
+  doc.text('Bayar:', xItem, y); doc.text('Rp' + trx.bayar.toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
+  doc.text('Kembali:', xItem, y); doc.text('Rp' + trx.kembali.toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
+  if (trx.toko_footer) { doc.setFontSize(7); doc.text(trx.toko_footer, lebarKertas / 2, y, { align: 'center' }); }
+  return doc.output('blob');
+}
+
 function renderChart(trans, mode, start, end) {
   if (chartInstance) chartInstance.destroy();
   const ctx = document.getElementById('chartPenjualan')?.getContext('2d');
@@ -262,11 +246,7 @@ function renderChart(trans, mode, start, end) {
     labels = keys.map(k => new Date(k).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
     data = keys.map(k => daily[k]);
   }
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'Penjualan (Rp)', data, backgroundColor: '#009688', borderRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: v => 'Rp' + v.toLocaleString('id') } } } }
-  });
+  chartInstance = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Penjualan (Rp)', data, backgroundColor: '#009688', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: v => 'Rp' + v.toLocaleString('id') } } } } });
 }
 
 function renderTopProductsChart(trans) {
@@ -276,22 +256,154 @@ function renderTopProductsChart(trans) {
   const sales = {}; trans.forEach(t => { if (t.items) t.items.forEach(i => { const k = i.nama || i.barcode; if (!sales[k]) sales[k] = { nama: i.nama, qty: 0 }; sales[k].qty += i.qty || 1; }); });
   const sorted = Object.values(sales).sort((a, b) => b.qty - a.qty).slice(0, 10);
   const colors = ['#e53935', '#1e88e5', '#fdd835', '#8e24aa', '#fb8c00', '#d81b60', '#00acc1', '#7cb342', '#5e35b1', '#ffb300'];
-  topProductsChart = new Chart(ctx, {
-    type: 'pie',
-    data: { labels: sorted.map(p => p.nama), datasets: [{ data: sorted.map(p => p.qty), backgroundColor: colors.slice(0, sorted.length), borderWidth: 1 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
-  });
+  topProductsChart = new Chart(ctx, { type: 'pie', data: { labels: sorted.map(p => p.nama), datasets: [{ data: sorted.map(p => p.qty), backgroundColor: colors.slice(0, sorted.length), borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } } });
 }
 
 function exportCSV() {
   const tbody = document.querySelector('#reportTable tbody');
   let csv = 'No Invoice,Tanggal,Customer,Total\n';
-  tbody.querySelectorAll('tr').forEach(row => {
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 4) {
-      csv += `"${cells[0].textContent}","${cells[1].textContent}","${cells[2].textContent}","${cells[3].textContent.replace('Rp ', '').replace(/\./g, '')}"\n`;
-    }
-  });
+  tbody.querySelectorAll('tr').forEach(row => { const cells = row.querySelectorAll('td'); if (cells.length >= 4) { csv += `"${cells[0].textContent}","${cells[1].textContent}","${cells[2].textContent}","${cells[3].textContent.replace('Rp ', '').replace(/\./g, '')}"\n`; } });
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'laporan.csv'; a.click();
+}
+
+// ===================== SEND EMAIL =====================
+async function sendEmailResend(to, subject, message) {
+  const response = await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, subject, message }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Gagal mengirim email');
+  }
+  return response.json();
+}
+
+async function emailLaporanHarian() {
+  const settings = await getSettings();
+  if (!settings.report_email) { alert('Email belum diatur.'); return; }
+  const today = new Date();
+  const tanggal = today.toISOString().slice(0, 10);
+  const tanggalFormat = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const transactions = await getAllTransactions(tanggal + 'T00:00:00', tanggal + 'T23:59:59');
+  const totalTransaksi = transactions.length;
+  const totalPendapatan = transactions.reduce((sum, t) => sum + (t.total || 0), 0);
+  const productSales = {};
+  transactions.forEach(t => { if (t.items) { t.items.forEach(item => { const key = item.barcode; if (!productSales[key]) { productSales[key] = { nama: item.nama, qty: 0, total: 0 }; } productSales[key].qty += item.qty || 0; productSales[key].total += (item.harga * item.qty) || 0; }); } });
+  const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 5);
+  let message = `📊 LAPORAN HARIAN POS\n────────────────────────\nToko: ${settings.nama || 'POS'}\nTanggal: ${tanggalFormat}\n────────────────────────\n\n📋 RINGKASAN:\nTotal Transaksi: ${totalTransaksi}\nTotal Pendapatan: Rp ${totalPendapatan.toLocaleString('id')}\n`;
+  if (totalTransaksi > 0) { message += `Rata-rata: Rp ${Math.round(totalPendapatan / totalTransaksi).toLocaleString('id')}\n`; }
+  if (topProducts.length > 0) { message += `\n🔥 PRODUK TERLARIS:\n`; topProducts.forEach((p, i) => { message += `${i + 1}. ${p.nama} - ${p.qty} pcs (Rp ${p.total.toLocaleString('id')})\n`; }); }
+  message += `\n────────────────────────\n📱 Dikirim dari POS System\n`;
+  try {
+    await sendEmailResend(settings.report_email, `📊 Laporan Harian POS - ${tanggal}`, message);
+    alert('✅ Laporan harian berhasil dikirim ke ' + settings.report_email);
+  } catch (error) { alert('❌ Gagal mengirim: ' + error.message); }
+}
+
+async function emailLaporanPeriode() {
+  const settings = await getSettings();
+  if (!settings.report_email) { alert('Email belum diatur.'); return; }
+  const tglAwal = document.getElementById('tglAwal').value;
+  const tglAkhir = document.getElementById('tglAkhir').value;
+  if (!tglAwal || !tglAkhir) { alert('Pilih tanggal terlebih dahulu.'); return; }
+  const transactions = await getAllTransactions(tglAwal + 'T00:00:00', tglAkhir + 'T23:59:59');
+  const totalTransaksi = transactions.length;
+  const totalPendapatan = transactions.reduce((sum, t) => sum + (t.total || 0), 0);
+  const productSales = {};
+  transactions.forEach(t => { if (t.items) { t.items.forEach(item => { const key = item.barcode; if (!productSales[key]) { productSales[key] = { nama: item.nama, qty: 0, total: 0 }; } productSales[key].qty += item.qty || 0; productSales[key].total += (item.harga * item.qty) || 0; }); } });
+  const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 10);
+  let message = `📊 LAPORAN POS\n────────────────────────\nToko: ${settings.nama || 'POS'}\nPeriode: ${tglAwal} s/d ${tglAkhir}\n────────────────────────\n\n📋 RINGKASAN:\nTotal Transaksi: ${totalTransaksi}\nTotal Pendapatan: Rp ${totalPendapatan.toLocaleString('id')}\n`;
+  if (totalTransaksi > 0) { message += `Rata-rata: Rp ${Math.round(totalPendapatan / totalTransaksi).toLocaleString('id')}\n`; }
+  if (topProducts.length > 0) { message += `\n🔥 PRODUK TERLARIS:\n`; topProducts.forEach((p, i) => { message += `${i + 1}. ${p.nama} - ${p.qty} pcs (Rp ${p.total.toLocaleString('id')})\n`; }); }
+  message += `\n────────────────────────\n📱 Dikirim dari POS System\n`;
+  try {
+    await sendEmailResend(settings.report_email, `📊 Laporan POS - ${tglAwal} s/d ${tglAkhir}`, message);
+    alert('✅ Laporan periode berhasil dikirim ke ' + settings.report_email);
+  } catch (error) { alert('❌ Gagal mengirim: ' + error.message); }
+}
+
+async function kirimEmailLaporan(settings) {
+  const today = new Date();
+  const tanggal = today.toISOString().slice(0, 10);
+  const tanggalFormat = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const transactions = await getAllTransactions(tanggal + 'T00:00:00', tanggal + 'T23:59:59');
+  const totalTransaksi = transactions.length;
+  const totalPendapatan = transactions.reduce((sum, t) => sum + (t.total || 0), 0);
+  const productSales = {};
+  transactions.forEach(t => { if (t.items) { t.items.forEach(item => { const key = item.barcode; if (!productSales[key]) { productSales[key] = { nama: item.nama, qty: 0, total: 0 }; } productSales[key].qty += item.qty || 0; productSales[key].total += (item.harga * item.qty) || 0; }); } });
+  const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 5);
+  let message = `📊 LAPORAN POS - ${tanggalFormat}\n────────────────────────\nToko: ${settings.nama || 'POS'}\n────────────────────────\n\nTotal Transaksi: ${totalTransaksi}\nTotal Pendapatan: Rp ${totalPendapatan.toLocaleString('id')}\n\n`;
+  if (topProducts.length > 0) { message += `🔥 PRODUK TERLARIS:\n`; topProducts.forEach((p, i) => { message += `${i + 1}. ${p.nama} - ${p.qty} pcs\n`; }); }
+  message += `\n────────────────────────\n📱 Dikirim otomatis oleh POS\n`;
+  try { await sendEmailResend(settings.report_email, `📊 Laporan POS - ${tanggal}`, message); console.log('Auto report sent'); }
+  catch (error) { console.error('Auto report failed:', error); }
+}
+
+async function checkAutoEmailReport() {
+  const settings = await getSettings();
+  if (!settings.report_email || !settings.report_frequency || settings.report_frequency === 'none') return;
+  const today = new Date();
+  const currentHour = today.getHours();
+  const lastSent = localStorage.getItem('lastReportSent');
+  let shouldSend = false;
+  if (settings.report_frequency === 'daily') {
+    const th = parseInt(settings.report_daily_time) || 21;
+    const ts = today.toISOString().slice(0, 10);
+    if (lastSent !== ts && currentHour === th) shouldSend = true;
+  } else if (settings.report_frequency === 'weekly') {
+    const th = parseInt(settings.report_weekly_time) || 21;
+    const td = parseInt(settings.report_weekly_day);
+    const tdd = today.getDay();
+    const ws = `${today.getFullYear()}-W${getWeekNumber(today)}`;
+    if (tdd === td && currentHour === th && lastSent !== ws) shouldSend = true;
+  } else if (settings.report_frequency === 'monthly') {
+    const th = parseInt(settings.report_monthly_time) || 21;
+    const tdd = parseInt(settings.report_monthly_date);
+    const tdate = today.getDate();
+    const ms = `${today.getFullYear()}-${today.getMonth() + 1}`;
+    if (tdate === tdd && currentHour === th && lastSent !== ms) shouldSend = true;
+  }
+  if (shouldSend) {
+    await kirimEmailLaporan(settings);
+    if (settings.report_frequency === 'daily') localStorage.setItem('lastReportSent', today.toISOString().slice(0, 10));
+    else if (settings.report_frequency === 'weekly') localStorage.setItem('lastReportSent', `${today.getFullYear()}-W${getWeekNumber(today)}`);
+    else if (settings.report_frequency === 'monthly') localStorage.setItem('lastReportSent', `${today.getFullYear()}-${today.getMonth() + 1}`);
+  }
+}
+
+function getWeekNumber(d) {
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// ========== LOW STOCK BANNER FOR TRANSAKSI PAGE ==========
+async function checkLowStockBanner() {
+  try {
+    const { data: products } = await supabaseClient
+      .from('products')
+      .select('*')
+      .order('stok');
+    
+    const lowStockProducts = (products || []).filter(p => p.stok <= (p.min_stok || 10));
+    const banner = document.getElementById('lowStockBanner');
+    const text = document.getElementById('lowStockBannerText');
+    
+    if (!banner || !text) return;
+    
+    if (lowStockProducts.length === 0) {
+      banner.style.display = 'none';
+      return;
+    }
+    
+    banner.style.display = 'block';
+    const names = lowStockProducts.map(p => `${p.nama} (${p.stok})`).join(', ');
+    text.textContent = names;
+  } catch (e) {
+    console.error('Banner check failed:', e);
+  }
 }

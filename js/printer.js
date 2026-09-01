@@ -1,6 +1,10 @@
 // ===================== PRINTER.JS =====================
-let bluetoothDevice = null;
-let bluetoothCharacteristic = null;
+var bluetoothDevice = null;
+var bluetoothCharacteristic = null;
+
+// Label printer (Aiyin AD240-BT BLE)
+var labelPrinterDevice = null;
+var labelPrinterCharacteristic = null;
 
 async function sambungPrinter() {
   try {
@@ -8,8 +12,8 @@ async function sambungPrinter() {
       acceptAllDevices: true,
       optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
     });
-    const server = await bluetoothDevice.gatt.connect();
-    const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+    var server = await bluetoothDevice.gatt.connect();
+    var service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
     bluetoothCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
     updateStatusPrinter(true);
     alert('Printer terhubung!');
@@ -32,58 +36,50 @@ async function putusPrinter() {
 }
 
 function updateStatusPrinter(connected) {
-  const elements = [
+  var elements = [
     { led: 'ledTrans', text: 'printerStatusText', btn: 'btnPutusTrans' },
     { led: 'ledSetting', text: 'printerStatusTextSetting', btn: 'btnPutusSetting' }
   ];
-  elements.forEach(el => {
-    const led = document.getElementById(el.led);
-    const text = document.getElementById(el.text);
-    const btn = document.getElementById(el.btn);
-    if (led) led.className = `led ${connected ? 'led-green' : 'led-red'}`;
+  elements.forEach(function(el) {
+    var led = document.getElementById(el.led);
+    var text = document.getElementById(el.text);
+    var btn = document.getElementById(el.btn);
+    if (led) led.className = 'led ' + (connected ? 'led-green' : 'led-red');
     if (text) text.textContent = connected ? 'Printer terhubung' : 'Printer tidak terhubung';
     if (btn) btn.style.display = connected ? 'inline-block' : 'none';
   });
 }
 
-// Fungsi cetak: hanya mengirim teks yang sudah diformat (tidak membuat teks sendiri)
 async function cetakStrukKePrinter(logoBase64, teks) {
   if (!bluetoothCharacteristic) {
     alert('Printer tidak terhubung');
     return;
   }
   try {
-    // Reset printer ke default
-    const reset = new Uint8Array([0x1B, 0x40]);
+    var reset = new Uint8Array([0x1B, 0x40]);
     await bluetoothCharacteristic.writeValue(reset);
-    await new Promise(r => setTimeout(r, 50));
+    await sleep(50);
 
-    // (Logo bisa diaktifkan kembali jika diperlukan, saat ini dilewati)
-
-    // Kirim teks per baris dengan jeda
-    const encoder = new TextEncoder();
-    const lines = teks.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      let line = lines[i];
+    var encoder = new TextEncoder();
+    var lines = teks.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
       if (i < lines.length - 1) line += '\n';
-      const data = encoder.encode(line);
-      // Kirim dalam chunk 256 byte
-      for (let j = 0; j < data.byteLength; j += 256) {
-        const chunk = data.slice(j, j + 256);
+      var data = encoder.encode(line);
+      for (var j = 0; j < data.byteLength; j += 256) {
+        var chunk = data.slice(j, j + 256);
         await bluetoothCharacteristic.writeValue(chunk);
       }
-      await new Promise(r => setTimeout(r, 50));
+      await sleep(50);
     }
 
-    // Beri jarak 3 baris sebelum potong kertas
-    const extraFeed = encoder.encode('\n\n\n');
+    var extraFeed = encoder.encode('\n\n\n');
     await bluetoothCharacteristic.writeValue(extraFeed);
-    await new Promise(r => setTimeout(r, 50));
+    await sleep(50);
 
-    // Potong kertas (perintah ESC/POS partial cut)
-    const cut = encoder.encode('\x1B\x69');
+    var cut = encoder.encode('\x1B\x69');
     await bluetoothCharacteristic.writeValue(cut);
-    await new Promise(r => setTimeout(r, 100));
+    await sleep(100);
 
     alert('Cetak berhasil');
   } catch (e) {
@@ -93,16 +89,16 @@ async function cetakStrukKePrinter(logoBase64, teks) {
 }
 
 async function getLebarKertasAktif() {
-  const settings = await getSettings();
+  var settings = await getSettings();
   return parseInt(settings.kertas_lebar) || 80;
 }
 
 async function testPrint() {
-  const lebar = await getLebarKertasAktif();
-  const charWidth = lebar === 80 ? 47 : 32;
-  const garis = '='.repeat(charWidth);
+  var lebar = await getLebarKertasAktif();
+  var charWidth = lebar === 80 ? 47 : 32;
+  var garis = '='.repeat(charWidth);
 
-  let teks = '';
+  var teks = '';
   teks += garis + '\n';
   teks += '   TEST PRINT\n';
   teks += garis + '\n';
@@ -113,18 +109,154 @@ async function testPrint() {
   if (bluetoothDevice && bluetoothCharacteristic) {
     await cetakStrukKePrinter(null, teks);
   } else {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: [lebar, 40] });
+    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: [lebar, 40] });
     doc.setFontSize(10);
     doc.text('Test Print', 3, 10);
     doc.text('Lebar: ' + lebar + 'mm', 3, 18);
     doc.text(new Date().toLocaleDateString('id-ID'), 3, 24);
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    const pw = window.open(url, '_blank');
-    if (pw) pw.addEventListener('load', () => pw.print(), { once: true });
+    var blob = doc.output('blob');
+    var url = URL.createObjectURL(blob);
+    var pw = window.open(url, '_blank');
+    if (pw) pw.addEventListener('load', function() { pw.print(); }, { once: true });
   }
 }
 
-// ⚠️ Fungsi buatStrukTeks SUDAH DIHAPUS dari sini.
-// Sekarang hanya ada di transaksi.js (versi 9 parameter).
+// ===================== LABEL PRINTER (Aiyin AD240-BT BLE) =====================
+async function sambungLabelPrinter() {
+  try {
+    console.log('Requesting Bluetooth device...');
+    
+    labelPrinterDevice = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        '00001101-0000-1000-8000-00805f9b34fb',
+        '00001800-0000-1000-8000-00805f9b34fb',
+        '00001801-0000-1000-8000-00805f9b34fb',
+        '0000180a-0000-1000-8000-00805f9b34fb',
+        '0000ff00-0000-1000-8000-00805f9b34fb',
+        '0000ff01-0000-1000-8000-00805f9b34fb',
+        '0000ff02-0000-1000-8000-00805f9b34fb',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+      ]
+    });
+    
+    console.log('Device selected:', labelPrinterDevice.name);
+    console.log('Device ID:', labelPrinterDevice.id);
+    
+    var server = await labelPrinterDevice.gatt.connect();
+    console.log('GATT connected!');
+    
+    var services = await server.getPrimaryServices();
+    console.log('Found ' + services.length + ' services');
+    
+    for (var i = 0; i < services.length; i++) {
+      console.log('Service ' + i + ': ' + services[i].uuid);
+      
+      try {
+        var chars = await services[i].getCharacteristics();
+        for (var j = 0; j < chars.length; j++) {
+          console.log('  Char ' + j + ': ' + chars[j].uuid);
+          console.log('  Properties: write=' + chars[j].properties.write + ', writeWoResp=' + chars[j].properties.writeWithoutResponse);
+          
+          if (chars[j].properties.write || chars[j].properties.writeWithoutResponse) {
+            labelPrinterCharacteristic = chars[j];
+            console.log('  -> USING THIS CHARACTERISTIC');
+            updateLabelPrinterStatus(true);
+            
+            var msg = 'Label printer terhubung!\n\n';
+            msg += 'Device: ' + labelPrinterDevice.name + '\n';
+            msg += 'Service: ' + services[i].uuid.substring(0, 8) + '...\n';
+            msg += 'Char: ' + chars[j].uuid.substring(0, 8) + '...';
+            alert(msg);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('  Error getting chars: ' + e.message);
+      }
+    }
+    
+    alert('Tidak menemukan characteristic.\nCek console (F12) untuk detail UUID.');
+    updateLabelPrinterStatus(false);
+    
+  } catch (e) {
+    console.error('Error:', e.message, e.name);
+    
+    if (e.name === 'NotFoundError') {
+      alert('Tidak ada device ditemukan.\nPastikan printer menyala & dalam mode pairing (lampu biru berkedip).');
+    } else if (e.name === 'SecurityError') {
+      alert('Izin Bluetooth ditolak.\nSettings > Apps > Chrome > Permissions > Allow Bluetooth.');
+    } else if (e.name === 'NetworkError') {
+      alert('Gagal konek GATT.\n1. Restart printer\n2. Unpair dari Settings Bluetooth\n3. Coba lagi');
+    } else {
+      alert('Gagal: ' + e.message);
+    }
+    
+    updateLabelPrinterStatus(false);
+  }
+}
+
+async function putusLabelPrinter() {
+  if (labelPrinterDevice && labelPrinterDevice.gatt.connected) {
+    await labelPrinterDevice.gatt.disconnect();
+    labelPrinterDevice = null;
+    labelPrinterCharacteristic = null;
+    updateLabelPrinterStatus(false);
+  }
+}
+
+function updateLabelPrinterStatus(connected) {
+  var statusEl = document.getElementById('labelPrinterStatus');
+  if (statusEl) {
+    statusEl.innerHTML = (connected ? '<span class="led led-green"></span> Label printer terhubung' : '<span class="led led-red"></span> Label printer tidak terhubung') + ' <button class="btn btn-sm" onclick="sambungLabelPrinter()" style="margin-left:8px;">🔗 Sambung Label</button> <button class="btn btn-sm btn-danger" onclick="putusLabelPrinter()">Putus</button>';
+  }
+}
+
+// ===================== CETAK LABEL 33x15mm 2 KOLOM (BeePRT via BLE) =====================
+async function cetakLabelLangsung(barcode) {
+  if (!labelPrinterDevice || !labelPrinterCharacteristic) {
+    alert('Label printer tidak terhubung. Sambungkan dulu.');
+    return;
+  }
+
+  try {
+    var encoder = new TextEncoder();
+    var cmd = '';
+    
+    // DIRECTION 0 = portrait, DIRECTION 1 = landscape
+    // Try landscape mode since labels are 33mm wide
+    cmd += 'SIZE 264,120\r\n';
+    cmd += 'GAP 16,0\r\n';
+    cmd += 'DIRECTION 0\r\n';
+    cmd += 'CLS\r\n';
+    
+    // Simple test markers from top-left
+    cmd += 'TEXT 10,10,"1",0,1,1,"TOP LEFT"\r\n';
+    cmd += 'TEXT 10,50,"1",0,1,1,"MIDDLE"\r\n';
+    cmd += 'TEXT 10,90,"1",0,1,1,"BOTTOM"\r\n';
+    
+    cmd += 'PRINT 1\r\n';
+    
+    console.log('Orientation test');
+    
+    var data = encoder.encode(cmd);
+    for (var i = 0; i < data.byteLength; i += 20) {
+      var end = Math.min(i + 20, data.byteLength);
+      var chunk = data.slice(i, end);
+      await labelPrinterCharacteristic.writeValue(chunk);
+      await sleep(80);
+    }
+    
+    alert('Check: TOP LEFT at top? MIDDLE in middle? BOTTOM at bottom?');
+    
+  } catch (e) {
+    console.error('Error:', e.message);
+    alert('Gagal: ' + e.message);
+  }
+}
+
+function sleep(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}

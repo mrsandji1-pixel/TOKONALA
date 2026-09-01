@@ -1,306 +1,499 @@
-// ===================== INVENTORY.JS (Cache + Kamera + Kompresi + Tombol Batal) =====================
-let currentBarcode = null, fotoDihapus = false;
-let capturedPhotoBase64 = null;
-let allProductsCache = null; // cache produk
-
+// ===================== INVENTORY.JS (FAST + STORAGE PHOTOS + UX + LOKASI) =====================
 function setupInventory() {
-  document.getElementById('prodBarcode').onkeydown = e => {
-    if (e.key === 'Enter') { e.preventDefault(); cariAtauTambahProduk(); }
-  };
-
-  const fotoInput = document.getElementById('prodFoto');
-  if (fotoInput) {
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex'; wrapper.style.gap = '8px'; wrapper.style.alignItems = 'center';
-    fotoInput.parentNode.insertBefore(wrapper, fotoInput);
-    wrapper.appendChild(fotoInput);
-
-    const btnKamera = document.createElement('button');
-    btnKamera.type = 'button'; btnKamera.className = 'btn btn-sm'; btnKamera.textContent = '📷 Ambil Foto';
-    btnKamera.onclick = bukaKamera;
-    wrapper.appendChild(btnKamera);
-  }
+  document.getElementById('prodBarcode').onkeydown = function(e) { if (e.key === 'Enter') { e.preventDefault(); cariAtauTambahProduk(); } };
 }
 
-// ========== MODAL KAMERA ==========
-function bukaKamera() {
-  const modal = document.createElement('div');
-  modal.id = 'kameraModal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;';
-  modal.innerHTML = `
-    <video id="kameraVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:8px;"></video>
-    <div style="margin-top:12px;display:flex;gap:8px;">
-      <button id="btnCapture" class="btn btn-sm">📸 Ambil Gambar</button>
-      <button id="btnBatalKamera" class="btn btn-sm btn-danger">Batal</button>
-    </div>
-    <canvas id="kameraCanvas" style="display:none;"></canvas>
-  `;
-  document.body.appendChild(modal);
+var currentBarcode = null, fotoDihapus = false;
+var currentLabelBarcode = null;
+var productPage = 1, productPageSize = 50, totalProducts = 0;
 
-  const video = document.getElementById('kameraVideo');
-  const canvas = document.getElementById('kameraCanvas');
-  let stream;
+// ===================== LOCAL STORAGE CACHE =====================
+function getLocalProducts() {
+  try { var d = localStorage.getItem('cachedProducts'); if (d) return JSON.parse(d); } catch(e) {}
+  return null;
+}
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(s => { stream = s; video.srcObject = stream; })
-    .catch(err => { alert('Gagal mengakses kamera: ' + err.message); document.body.removeChild(modal); });
+function setLocalProducts(products) {
+  try { localStorage.setItem('cachedProducts', JSON.stringify(products)); } catch(e) {}
+}
 
-  document.getElementById('btnCapture').onclick = () => {
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
+var lastSyncTime = 0, SYNC_INTERVAL = 60000;
 
-    const maxSize = 800;
-    let { width, height } = canvas;
-    if (width > maxSize || height > maxSize) {
-      const ratio = Math.min(maxSize / width, maxSize / height);
-      width = Math.round(width * ratio); height = Math.round(height * ratio);
+async function syncProductsIfNeeded() {
+  var now = Date.now();
+  if (now - lastSyncTime < SYNC_INTERVAL && getLocalProducts()) return getLocalProducts();
+  try {
+    var r = await supabaseClient.from('products').select('*').order('nama');
+    if (r.data) { setLocalProducts(r.data); lastSyncTime = now; }
+    return r.data || getLocalProducts() || [];
+  } catch(e) { return getLocalProducts() || []; }
+}
+
+// ===================== FAST PRODUCT LIST =====================
+async function refreshProductList() {
+  productPage = 1; document.getElementById('productCount').textContent = '...';
+  var cached = getLocalProducts();
+  if (cached) { totalProducts = cached.length; renderProductTable(cached.slice(0, productPageSize)); }
+  syncProductsIfNeeded().then(function(fresh) {
+    if (fresh && (!cached || fresh.length !== cached.length)) {
+      totalProducts = fresh.length; renderProductTable(fresh.slice(0, productPageSize));
     }
-    const resizeCanvas = document.createElement('canvas');
-    resizeCanvas.width = width; resizeCanvas.height = height;
-    const resizeCtx = resizeCanvas.getContext('2d');
-    resizeCtx.drawImage(canvas, 0, 0, width, height);
-    capturedPhotoBase64 = resizeCanvas.toDataURL('image/jpeg', 0.7);
-
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    document.body.removeChild(modal);
-
-    document.getElementById('fotoPreview').src = capturedPhotoBase64;
-    document.getElementById('fotoPreviewContainer').style.display = 'block';
-    fotoDihapus = false;
-    document.getElementById('prodFoto').value = '';
-  };
-
-  document.getElementById('btnBatalKamera').onclick = () => {
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    document.body.removeChild(modal);
-  };
+  });
+  document.getElementById('invSearch').value = '';
 }
 
-// ========== CARI / TAMBAH PRODUK ==========
+async function loadProductPage() {
+  var cached = getLocalProducts() || await syncProductsIfNeeded();
+  totalProducts = cached.length;
+  renderProductTable(cached.slice((productPage-1)*productPageSize, productPage*productPageSize));
+}
+
+function nextPage() { var tp = Math.ceil(totalProducts/productPageSize); if (productPage<tp) { productPage++; loadProductPage(); } }
+function prevPage() { if (productPage>1) { productPage--; loadProductPage(); } }
+
+// ===================== INSTANT SEARCH =====================
+var filterTimer = null;
+function filterProductList() {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(function() {
+    var q = (document.getElementById('invSearch')?.value || '').trim().toLowerCase();
+    var cached = getLocalProducts();
+    if (!cached) { refreshProductList(); return; }
+    if (!q) { totalProducts = cached.length; renderProductTable(cached.slice(0, productPageSize)); return; }
+    var filtered = cached.filter(function(p) {
+      return (p.nama&&p.nama.toLowerCase().indexOf(q)!==-1) || 
+             (p.barcode&&p.barcode.toLowerCase().indexOf(q)!==-1) || 
+             (p.kategori&&p.kategori.toLowerCase().indexOf(q)!==-1) ||
+             (p.lokasi&&p.lokasi.toLowerCase().indexOf(q)!==-1);
+    });
+    totalProducts = filtered.length; renderProductTable(filtered.slice(0, 100));
+  }, 100);
+}
+
+// ===================== OPTIMISTIC DELETE =====================
+async function hapusProdukDariDaftar(b) {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!confirm('Hapus?')) return;
+  var cached = getLocalProducts() || [];
+  var product = cached.find(function(p) { return p.barcode === b; });
+  cached = cached.filter(function(p) { return p.barcode !== b; });
+  setLocalProducts(cached); totalProducts = cached.length; loadProductPage();
+  try {
+    await supabaseClient.from('products').delete().eq('barcode', b);
+    if (product && product.foto && product.foto.indexOf('supabase.co') !== -1) {
+      var fileName = product.foto.split('/').pop();
+      await supabaseClient.storage.from('product-photos').remove([fileName]);
+    }
+    lastSyncTime = 0;
+  } catch(e) { localStorage.removeItem('cachedProducts'); refreshProductList(); }
+}
+
+function updateLocalProduct(product) {
+  var cached = getLocalProducts() || [];
+  var found = false;
+  for (var i = 0; i < cached.length; i++) { if (cached[i].barcode === product.barcode) { cached[i] = product; found = true; break; } }
+  if (!found) cached.push(product);
+  setLocalProducts(cached); totalProducts = cached.length; lastSyncTime = 0;
+}
+
+// ===================== PRODUCT TABLE =====================
+function renderProductTable(products) {
+  var tbody = document.querySelector('#productListTable tbody'); tbody.innerHTML = '';
+  document.getElementById('productCount').textContent = totalProducts;
+  if (!products.length) { tbody.innerHTML = '<tr><td colspan="9">Tidak ada produk</td></tr>'; updatePagination(); return; }
+  var isAdmin = currentUser && currentUser.role === 'admin', isGudang = currentUser && currentUser.role === 'gudang', canEdit = isAdmin || isGudang;
+  document.getElementById('thAksi').style.display = canEdit ? '' : 'none';
+  
+  // Check if features are active
+  var isLabelActive = activeFeatures && activeFeatures.label;
+  var isGrosirActive = activeFeatures && activeFeatures.grosir;
+  
+  var html = '';
+  for (var i = 0; i < products.length; i++) {
+    var p = products[i];
+    var minStok = p.min_stok || 0, isLowStock = (p.stok || 0) <= minStok;
+    var rowBg = isLowStock ? 'background:#fff3e0;' : '';
+    var stokStyle = isLowStock ? 'color:#e53935;font-weight:bold;' : 'color:#333;';
+    var stokDisplay = (p.stok || 0) + (isLowStock ? ' ⚠️' : '');
+    var grosirInfo = (isGrosirActive && p.diskon_persen > 0 && p.diskon_min_qty > 0) ? '<br><small style="color:#e53935;font-weight:bold;">🔥 Grosir ' + p.diskon_persen + '% min ' + p.diskon_min_qty + 'pcs</small>' : '';
+    var fotoHtml = p.foto ? '<img src="' + p.foto + '" style="width:30px;height:30px;border-radius:4px;object-fit:cover;" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="width:30px;height:30px;background:#e0e0e0;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>';
+    var editBtn = canEdit ? '<button class="btn-sm" onclick="editProdukDariDaftar(\'' + p.barcode + '\')">✏️</button> ' : '';
+    var deleteBtn = isAdmin ? '<button class="btn-sm btn-danger" onclick="hapusProdukDariDaftar(\'' + p.barcode + '\')">🗑</button> ' : '';
+    var labelBtn = isLabelActive ? '<button class="btn-sm" onclick="bukaLabelDialog(\'' + p.barcode + '\')">🏷️ Label</button>' : '';
+    var aksi = editBtn + deleteBtn + labelBtn;
+    html += '<tr style="' + rowBg + '"><td>' + (p.barcode||'') + '</td><td style="display:flex;align-items:center;gap:6px;">' + fotoHtml + '<div>' + (p.nama||'') + grosirInfo + '</div></td><td>' + (p.kategori||'-') + '</td><td>' + (p.keterangan||'-') + '</td><td>' + (p.lokasi||'-') + '</td><td>Rp' + (p.harga_jual||0).toLocaleString('id') + '</td><td style="' + stokStyle + '">' + stokDisplay + '</td><td>' + aksi + '</td></tr>';
+  }
+  tbody.innerHTML = html;
+  updatePagination();
+}
+function updatePagination() {
+  var tp = Math.ceil(totalProducts/productPageSize);
+  var ex = document.getElementById('productPagination'); if (ex) ex.remove();
+  var d = document.createElement('div'); d.id = 'productPagination';
+  d.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:8px;justify-content:center;';
+  d.innerHTML = '<button class="btn btn-sm" onclick="prevPage()" '+(productPage<=1?'disabled':'')+'>◀ Sebelumnya</button><span style="font-size:12px;">Hal '+productPage+' dari '+tp+' ('+totalProducts+' produk)</span><button class="btn btn-sm" onclick="nextPage()" '+(productPage>=tp?'disabled':'')+'>Selanjutnya ▶</button>';
+  document.getElementById('productListTable').parentNode.insertBefore(d, document.getElementById('productListTable').nextSibling);
+}
+
+// ===================== PRODUCT SEARCH =====================
 async function cariAtauTambahProduk() {
   if (!currentUser) return;
-  const barcode = document.getElementById('prodBarcode').value.trim(); if (!barcode) return;
-  currentBarcode = barcode; document.getElementById('productForm').style.display = 'block';
-  fotoDihapus = false; capturedPhotoBase64 = null;
-
-  const product = await getProductByBarcode(barcode);
-  const isAdmin = currentUser.role === 'admin';
-  if (product) {
-    isiFormProduk(product, false, isAdmin);
-    if (product.foto) {
-      document.getElementById('fotoPreview').src = product.foto;
-      document.getElementById('fotoPreviewContainer').style.display = 'block';
-    } else document.getElementById('fotoPreviewContainer').style.display = 'none';
-  } else {
-    if (!isAdmin) { alert('Produk tidak ditemukan'); tutupFormProduk(); return; }
-    isiFormProduk({ barcode, nama: '', kategori: '', keterangan: '', harga_beli: 0, harga_jual: 0, stok: 0, foto: null }, true, true);
-    document.getElementById('fotoPreviewContainer').style.display = 'none';
-  }
-  if (isAdmin) document.getElementById('prodNama').focus();
-  else {
-    ['prodNama','prodKategori','prodKeterangan','prodHargaBeli','prodHargaJual','perubahanStok'].forEach(id => document.getElementById(id).readOnly = true);
-    document.getElementById('btnSimpanProduk').style.display = 'none';
-    document.getElementById('btnHapusProduk').style.display = 'none';
-    document.getElementById('btnHapusFoto').style.display = 'none';
-    document.getElementById('prodFoto').disabled = true;
-  }
+  var barcode = document.getElementById('prodBarcode').value.trim(); if (!barcode) return;
+  currentBarcode = barcode; document.getElementById('productForm').style.display = 'block'; fotoDihapus = false;
+  var cached = getLocalProducts(); var product = null;
+  if (cached) { for (var i=0;i<cached.length;i++) { if (cached[i].barcode===barcode) { product=cached[i]; break; } } }
+  if (!product) product = await getProductByBarcode(barcode);
+  var isAdmin = currentUser.role === 'admin', isGudang = currentUser.role === 'gudang', canEdit = isAdmin || isGudang;
+  if (product) { isiFormProduk(product, false, canEdit, isAdmin); if (product.foto) { document.getElementById('fotoPreview').src=product.foto; document.getElementById('fotoPreviewContainer').style.display='block'; } else document.getElementById('fotoPreviewContainer').style.display='none'; }
+  else { if (!canEdit) { alert('Produk tidak ditemukan'); tutupFormProduk(); return; } isiFormProduk({barcode:barcode,nama:'',kategori:'',keterangan:'',lokasi:'',harga_beli:0,harga_jual:0,min_stok:0,diskon_persen:0,diskon_min_qty:0,stok:0,foto:null},true,true,isAdmin); document.getElementById('fotoPreviewContainer').style.display='none'; }
+  if (canEdit) document.getElementById('prodNama').focus();
+  else { ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){document.getElementById(id).readOnly=true;}); document.getElementById('btnSimpanProduk').style.display='none'; document.getElementById('btnBatalProduk').style.display='none'; document.getElementById('btnHapusProduk').style.display='none'; document.getElementById('btnHapusFoto').style.display='none'; }
 }
 
-function previewFoto() {
-  if (!currentUser || currentUser.role !== 'admin') return;
-  const f = document.getElementById('prodFoto').files[0];
-  if (f) {
-    const reader = new FileReader();
-    reader.onload = e => { document.getElementById('fotoPreview').src = e.target.result; document.getElementById('fotoPreviewContainer').style.display = 'block'; };
-    reader.readAsDataURL(f);
-    fotoDihapus = false; capturedPhotoBase64 = null;
-  }
+// ===================== PHOTO UPLOAD (30KB TARGET - Storage) =====================
+function ambilFotoDariKamera() { document.getElementById('prodFotoCamera').click(); }
+async function previewFotoDariKamera() { var f = document.getElementById('prodFotoCamera').files[0]; if (f) await compressAndPreview(f); }
+async function previewFotoDariFile() { var f = document.getElementById('prodFotoFile').files[0]; if (f) await compressAndPreview(f); }
+
+async function compressAndPreview(file) {
+  if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'gudang')) return;
+  try {
+    var img = new Image(); var url = URL.createObjectURL(file);
+    img.onload = async function() { URL.revokeObjectURL(url);
+      var mw = 150, mh = 150, w = img.width, h = img.height;
+      if (w > mw || h > mh) { if (w>h) { h=Math.round((h/w)*mw); w=mw; } else { w=Math.round((w/h)*mh); h=mh; } }
+      var c = document.getElementById('compressCanvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      var q = 0.5, comp = c.toDataURL('image/jpeg', q);
+      while (comp.length > 30000 && q > 0.1) { q -= 0.1; comp = c.toDataURL('image/jpeg', q); }
+      var sizeKB = (comp.length/1024).toFixed(1); console.log('Photo: ' + sizeKB + ' KB');
+      document.getElementById('fotoPreview').src = comp; document.getElementById('fotoPreviewContainer').style.display = 'block';
+      fotoDihapus = false; window.tempCompressedPhoto = comp;
+    }; img.src = url;
+  } catch(e) { alert('Gagal: ' + e.message); }
+}
+
+async function uploadPhotoToStorage(base64) {
+  try {
+    var res = await fetch(base64); var blob = await res.blob();
+    var fileName = Date.now() + '_' + Math.random().toString(36).substring(7) + '.jpg';
+    var { data, error } = await supabaseClient.storage.from('product-photos').upload(fileName, blob, { cacheControl: '3600', upsert: true, contentType: 'image/jpeg' });
+    if (error) throw error;
+    var { data: urlData } = supabaseClient.storage.from('product-photos').getPublicUrl(fileName);
+    return urlData.publicUrl;
+  } catch(e) { console.error('Storage upload failed:', e); return null; }
 }
 
 function hapusFoto() {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'gudang')) return;
   document.getElementById('fotoPreview').src = ''; document.getElementById('fotoPreviewContainer').style.display = 'none';
-  document.getElementById('prodFoto').value = ''; fotoDihapus = true; capturedPhotoBase64 = null;
+  document.getElementById('prodFotoFile').value = ''; document.getElementById('prodFotoCamera').value = ''; window.tempCompressedPhoto = null; fotoDihapus = true;
 }
 
-function isiFormProduk(produk, isNew, isAdmin) {
-  document.getElementById('formTitle').textContent = isAdmin ? (isNew ? 'Tambah Baru' : 'Update') : 'Detail';
-  document.getElementById('prodNama').value = produk.nama || '';
-  document.getElementById('prodKategori').value = produk.kategori || '';
+// ===================== PRODUCT FORM =====================
+function isiFormProduk(produk, isNew, canEdit, isAdmin) {
+  document.getElementById('formTitle').textContent = canEdit ? (isNew ? 'Tambah Baru' : 'Update') : 'Detail';
+  document.getElementById('prodNama').value = produk.nama || ''; 
+  document.getElementById('prodKategori').value = produk.kategori || ''; 
   document.getElementById('prodKeterangan').value = produk.keterangan || '';
-  document.getElementById('prodHargaBeli').value = produk.harga_beli || 0;
+  document.getElementById('prodLokasi').value = produk.lokasi || '';
+  document.getElementById('prodHargaBeli').value = produk.harga_beli || 0; 
   document.getElementById('prodHargaJual').value = produk.harga_jual || 0;
-  document.getElementById('stokSaatIni').textContent = produk.stok || 0;
-  document.getElementById('perubahanStok').value = 0; hitungStokAkhir();
-
-  // ---- Tombol Batal ----
-  let btnBatal = document.getElementById('btnBatalProduk');
-  if (!btnBatal) {
-    btnBatal = document.createElement('button'); btnBatal.id = 'btnBatalProduk'; btnBatal.className = 'btn btn-danger'; btnBatal.textContent = 'Batal';
-    btnBatal.onclick = tutupFormProduk;
-    const btnSimpan = document.getElementById('btnSimpanProduk');
-    if (btnSimpan && btnSimpan.parentNode) btnSimpan.parentNode.insertBefore(btnBatal, btnSimpan.nextSibling);
-    else document.getElementById('productForm').appendChild(btnBatal);
-  }
-  btnBatal.style.display = 'inline-block';
-
-  if (isAdmin) {
-    document.getElementById('btnHapusProduk').style.display = isNew ? 'none' : 'inline-block';
+  document.getElementById('prodDiskonPersen').value = produk.diskon_persen || 0; 
+  document.getElementById('prodDiskonMinQty').value = produk.diskon_min_qty || 0;
+  document.getElementById('prodMinStok').value = produk.min_stok || 0; 
+  document.getElementById('stokSaatIni').textContent = produk.stok || 0; 
+  document.getElementById('perubahanStok').value = 0; 
+  hitungStokAkhir();
+  if (canEdit) {
+    document.getElementById('btnHapusProduk').style.display = (isNew || !isAdmin) ? 'none' : 'inline-block';
     document.getElementById('btnSimpanProduk').style.display = 'inline-block';
+    document.getElementById('btnBatalProduk').style.display = 'inline-block';
     document.getElementById('btnHapusFoto').style.display = 'block';
-    ['prodNama','prodKategori','prodKeterangan','prodHargaBeli','prodHargaJual','perubahanStok','prodFoto'].forEach(id => { document.getElementById(id).readOnly = false; document.getElementById(id).disabled = false; });
-
-    document.getElementById('btnSimpanProduk').onclick = async () => {
+    ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){document.getElementById(id).readOnly=false;document.getElementById(id).disabled=false;});
+    document.getElementById('btnSimpanProduk').onclick = async function() {
       if (!currentBarcode) return;
-      let foto = produk.foto || null;
-      if (fotoDihapus) foto = null;
-      else if (capturedPhotoBase64) foto = capturedPhotoBase64;
-      else { const fi = document.getElementById('prodFoto'); if (fi.files[0]) foto = await toBase64(fi.files[0]); }
-
-      const data = {
-        barcode: currentBarcode,
-        nama: document.getElementById('prodNama').value.trim(),
-        kategori: document.getElementById('prodKategori').value.trim(),
-        keterangan: document.getElementById('prodKeterangan').value.trim(),
-        harga_beli: parseFloat(document.getElementById('prodHargaBeli').value) || 0,
-        harga_jual: parseFloat(document.getElementById('prodHargaJual').value) || 0,
-        stok: (parseInt(document.getElementById('stokSaatIni').textContent)||0) + (parseInt(document.getElementById('perubahanStok').value)||0),
-        foto
-      };
-      try {
-        await upsertProduct(data);
-        alert('Disimpan');
-        allProductsCache = null; // hapus cache
-        tutupFormProduk();
-        refreshProductList();
-      } catch (e) { alert('Gagal: ' + e.message); }
-    };
-
-    document.getElementById('btnHapusProduk').onclick = async () => {
-      if (confirm('Hapus?')) {
-        await deleteProduct(currentBarcode);
-        alert('Dihapus');
-        allProductsCache = null; // hapus cache
-        tutupFormProduk();
-        refreshProductList();
+      var foto = produk.foto || null;
+      if (fotoDihapus) {
+        if (foto && foto.indexOf('supabase.co') !== -1) {
+          try { var fn = foto.split('/').pop(); await supabaseClient.storage.from('product-photos').remove([fn]); } catch(e) {}
+        }
+        foto = null;
+      } else if (window.tempCompressedPhoto) {
+        var storageUrl = await uploadPhotoToStorage(window.tempCompressedPhoto);
+        if (storageUrl) foto = storageUrl;
+        else foto = window.tempCompressedPhoto;
+        window.tempCompressedPhoto = null;
       }
+      var data = { 
+        barcode: currentBarcode, 
+        nama: document.getElementById('prodNama').value.trim(), 
+        kategori: document.getElementById('prodKategori').value.trim(), 
+        keterangan: document.getElementById('prodKeterangan').value.trim(), 
+        lokasi: document.getElementById('prodLokasi').value.trim(),
+        harga_beli: parseFloat(document.getElementById('prodHargaBeli').value) || 0, 
+        harga_jual: parseFloat(document.getElementById('prodHargaJual').value) || 0, 
+        diskon_persen: parseFloat(document.getElementById('prodDiskonPersen').value) || 0, 
+        diskon_min_qty: parseInt(document.getElementById('prodDiskonMinQty').value) || 0, 
+        min_stok: parseInt(document.getElementById('prodMinStok').value) || 0, 
+        stok: (parseInt(document.getElementById('stokSaatIni').textContent) || 0) + (parseInt(document.getElementById('perubahanStok').value) || 0), 
+        foto: foto 
+      };
+      try { await upsertProduct(data); updateLocalProduct(data); alert('Disimpan'); tutupFormProduk(); refreshProductList(); } catch (e) { alert('Gagal: ' + e.message); }
     };
-  } else {
-    document.getElementById('btnSimpanProduk').style.display = 'none';
-    document.getElementById('btnHapusProduk').style.display = 'none';
-    document.getElementById('btnHapusFoto').style.display = 'none';
+    document.getElementById('btnBatalProduk').onclick = function() { tutupFormProduk(); };
+    document.getElementById('btnHapusProduk').onclick = async function() { if (confirm('Hapus?')) { await deleteProduct(currentBarcode); hapusProdukDariDaftar(currentBarcode); alert('Dihapus'); tutupFormProduk(); } };
   }
 }
 
 function tutupFormProduk() {
-  document.getElementById('productForm').style.display = 'none'; document.getElementById('prodBarcode').value = ''; document.getElementById('prodBarcode').focus();
-  currentBarcode = null; document.getElementById('fotoPreviewContainer').style.display = 'none'; document.getElementById('prodFoto').value = '';
-  fotoDihapus = false; capturedPhotoBase64 = null;
-  ['prodNama','prodKategori','prodKeterangan','prodHargaBeli','prodHargaJual','perubahanStok','prodFoto'].forEach(id => { document.getElementById(id).readOnly = false; document.getElementById(id).disabled = false; });
-  document.getElementById('btnSimpanProduk').style.display = 'inline-block'; document.getElementById('btnHapusProduk').style.display = 'none'; document.getElementById('btnHapusFoto').style.display = 'block';
-  const btnBatal = document.getElementById('btnBatalProduk'); if (btnBatal) btnBatal.style.display = 'none';
+  document.getElementById('productForm').style.display = 'none';
+  document.getElementById('prodBarcode').value = '';
+  document.getElementById('prodBarcode').focus();
+  currentBarcode = null;
+  document.getElementById('fotoPreviewContainer').style.display = 'none';
+  document.getElementById('prodFotoFile').value = '';
+  document.getElementById('prodFotoCamera').value = '';
+  window.tempCompressedPhoto = null;
+  fotoDihapus = false;
+  ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){document.getElementById(id).readOnly=false;document.getElementById(id).disabled=false;});
+  document.getElementById('btnSimpanProduk').style.display = 'inline-block';
+  document.getElementById('btnBatalProduk').style.display = 'inline-block';
+  document.getElementById('btnHapusProduk').style.display = 'none';
+  document.getElementById('btnHapusFoto').style.display = 'block';
 }
 
-function hitungStokAkhir() { const a = parseInt(document.getElementById('stokSaatIni').textContent)||0, b = parseInt(document.getElementById('perubahanStok').value)||0; document.getElementById('stokAkhir').textContent = a + b; }
+function hitungStokAkhir() { var a = parseInt(document.getElementById('stokSaatIni').textContent) || 0, b = parseInt(document.getElementById('perubahanStok').value) || 0; document.getElementById('stokAkhir').textContent = a + b; }
+async function editProdukDariDaftar(b) { if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'gudang')) return; document.getElementById('prodBarcode').value = b; cariAtauTambahProduk(); }
+function generateBarcode() { var now = new Date(); document.getElementById('prodBarcode').value = now.getFullYear().toString().slice(-2) + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + ('0'+now.getHours()).slice(-2) + ('0'+now.getMinutes()).slice(-2) + ('0'+now.getSeconds()).slice(-2); cariAtauTambahProduk(); }
 
-// ========== DAFTAR PRODUK (dengan cache) ==========
-function renderProductTable(products) {
-  const tbody = document.querySelector('#productListTable tbody'); tbody.innerHTML = '';
-  document.getElementById('productCount').textContent = products.length;
-  if (!products.length) { tbody.innerHTML = '<tr><td colspan="8">Tidak ada produk</td></tr>'; return; }
-  const isAdmin = currentUser && currentUser.role === 'admin';
-  document.getElementById('thAksi').style.display = isAdmin ? '' : 'none';
-  products.forEach(p => {
-    const row = tbody.insertRow();
-    const namaCell = `<td style="display:flex;align-items:center;gap:6px;">${p.foto ? `<img src="${p.foto}" style="width:30px;height:30px;border-radius:4px;object-fit:cover;">` : '<div style="width:30px;height:30px;background:#e0e0e0;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}${p.nama||''}</td>`;
-    const aksi = (isAdmin ? `<button class="btn-sm" onclick="editProdukDariDaftar('${p.barcode}')">✏️</button> <button class="btn-sm btn-danger" onclick="hapusProdukDariDaftar('${p.barcode}')">🗑</button> ` : '') + `<button class="btn-sm" onclick="cetakLabelQR('${p.barcode}')">🏷️ QR</button>`;
-    row.innerHTML = `<td>${p.barcode||''}</td>${namaCell}<td>${p.kategori||'-'}</td><td>${p.keterangan||'-'}</td><td>Rp${(p.harga_jual||0).toLocaleString('id')}</td><td>${p.stok||0}</td><td>${aksi}</td>`;
-  });
-}
+// ===================== CAMERA SCANNER INV (HD + Zoom + Stop + Fixed Animation) =====================
+var cameraScannerActiveInv = false;
+var cameraCodeReaderInv = null;
+var cameraStreamInv = null;
+var lastScannedBarcodeInv = '';
+var currentZoomInv = 1;
 
-async function refreshProductList() {
+function playBeepInv() {
   try {
-    const all = await getAllProducts();
-    allProductsCache = all; // simpan cache
-    renderProductTable(all);
-    document.getElementById('invSearch').value = '';
-  } catch (e) {
-    console.error(e);
-    document.querySelector('#productListTable tbody').innerHTML = '<tr><td colspan="8">Gagal memuat data</td></tr>';
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator(); var gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 800; osc.type = 'square';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.15);
+  } catch(e) {}
+}
+
+function setZoomInv(value) {
+  currentZoomInv = parseFloat(value);
+  if (cameraStreamInv) {
+    var track = cameraStreamInv.getVideoTracks()[0];
+    if (track && 'zoom' in track.getCapabilities()) {
+      track.applyConstraints({ advanced: [{ zoom: currentZoomInv }] });
+    }
+  }
+  var el = document.getElementById('zoomValueInv');
+  if (el) el.textContent = currentZoomInv.toFixed(1) + 'x';
+}
+
+async function startCameraScannerInv() {
+  try {
+    if (cameraCodeReaderInv) { cameraCodeReaderInv.reset(); cameraCodeReaderInv = null; }
+    if (cameraStreamInv) { cameraStreamInv.getTracks().forEach(function(t){t.stop();}); cameraStreamInv = null; }
+    
+    var container = document.getElementById('cameraScannerContainerInv');
+    container.style.display = 'block';
+    container.style.cssText = 'margin-top:8px;position:relative;width:100%;max-width:300px;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#000;margin-left:auto;margin-right:auto;';
+    
+    container.innerHTML = 
+      '<div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;pointer-events:none;">' +
+      '<div style="position:absolute;top:15%;left:15%;right:15%;bottom:15%;border:3px solid #00ff00;border-radius:8px;">' +
+      '<div style="position:absolute;top:-3px;left:-3px;width:20px;height:20px;border-top:4px solid #00ff00;border-left:4px solid #00ff00;"></div>' +
+      '<div style="position:absolute;top:-3px;right:-3px;width:20px;height:20px;border-top:4px solid #00ff00;border-right:4px solid #00ff00;"></div>' +
+      '<div style="position:absolute;bottom:-3px;left:-3px;width:20px;height:20px;border-bottom:4px solid #00ff00;border-left:4px solid #00ff00;"></div>' +
+      '<div style="position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-bottom:4px solid #00ff00;border-right:4px solid #00ff00;"></div>' +
+      '<div class="scan-line-inv-fixed" style="position:absolute;left:16%;right:16%;height:2px;background:#ff0000;animation:scanAnimInvFixed 2s ease-in-out infinite;"></div>' +
+      '</div></div>' +
+      '<video id="cameraScannerVideoInv" autoplay playsinline style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;z-index:1;"></video>' +
+      '<button class="btn btn-sm btn-danger" onclick="stopCameraScannerInv()" style="position:absolute;top:8px;right:8px;z-index:3;padding:6px 12px;border-radius:6px;font-size:13px;">✕ Stop</button>' +
+      '<div style="position:absolute;bottom:8px;left:8px;right:8px;z-index:3;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.6);border-radius:8px;padding:6px 10px;">' +
+      '<span style="color:white;font-size:11px;">🔍</span>' +
+      '<input type="range" id="zoomSliderInv" min="1" max="5" step="0.1" value="1" oninput="setZoomInv(this.value)" style="flex:1;height:4px;">' +
+      '<span id="zoomValueInv" style="color:white;font-size:11px;min-width:30px;">1.0x</span>' +
+      '</div>';
+    
+    if (!document.getElementById('scanAnimStyleInvFixed')) {
+      var style = document.createElement('style');
+      style.id = 'scanAnimStyleInvFixed';
+      style.textContent = '@keyframes scanAnimInvFixed{0%{top:16%}50%{top:82%}100%{top:16%}}';
+      document.head.appendChild(style);
+    }
+    
+    cameraStreamInv = await navigator.mediaDevices.getUserMedia({
+      video: { 
+        facingMode: 'environment', 
+        width: { ideal: 1920 }, 
+        height: { ideal: 1920 },
+        zoom: true
+      }
+    });
+    
+    var video = document.getElementById('cameraScannerVideoInv');
+    video.srcObject = cameraStreamInv;
+    video.play();
+    
+    currentZoomInv = 1;
+    cameraCodeReaderInv = new ZXing.BrowserMultiFormatReader();
+    cameraScannerActiveInv = false;
+    
+    cameraCodeReaderInv.decodeFromVideoDevice(null, video, function(result, err) {
+      if (result && !cameraScannerActiveInv) {
+        var text = result.getText();
+        if (text && text.length > 3 && text !== lastScannedBarcodeInv) {
+          lastScannedBarcodeInv = text;
+          
+          playBeepInv();
+          
+          document.getElementById('prodBarcode').value = text;
+          
+          if (typeof cariAtauTambahProduk === 'function') {
+            cariAtauTambahProduk();
+          }
+          
+          cameraScannerActiveInv = true;
+          setTimeout(function() {
+            stopCameraScannerInv();
+          }, 1000);
+        }
+      }
+    });
+    
+    console.log('Inventory camera scanner started (HD + Zoom)');
+  } catch(e) {
+    console.error('Camera error:', e);
+    alert('Gagal mengakses kamera: ' + e.message);
+    document.getElementById('cameraScannerContainerInv').style.display = 'none';
   }
 }
 
-let filterTimer = null;
-function filterProductList() {
-  clearTimeout(filterTimer);
-  filterTimer = setTimeout(async () => {
-    const query = document.getElementById('invSearch')?.value.trim();
-    if (!query) {
-      if (allProductsCache) renderProductTable(allProductsCache);
-      else await refreshProductList();
-      return;
-    }
-    // Jika ada cache, kita filter dari cache (cukup cepat)
-    if (allProductsCache) {
-      const filtered = allProductsCache.filter(p => 
-        (p.nama||'').toLowerCase().includes(query.toLowerCase()) ||
-        (p.barcode||'').toLowerCase().includes(query.toLowerCase()) ||
-        (p.kategori||'').toLowerCase().includes(query.toLowerCase())
-      );
-      renderProductTable(filtered);
-      return;
-    }
-    // Fallback ke API
+function stopCameraScannerInv() {
+  if (cameraCodeReaderInv) { cameraCodeReaderInv.reset(); cameraCodeReaderInv = null; }
+  if (cameraStreamInv) { cameraStreamInv.getTracks().forEach(function(t){t.stop();}); cameraStreamInv = null; }
+  var container = document.getElementById('cameraScannerContainerInv');
+  if (container) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+  }
+  lastScannedBarcodeInv = '';
+  cameraScannerActiveInv = false;
+  currentZoomInv = 1;
+}
+
+function activateBluetoothScannerInv() {
+  var input = document.getElementById('prodBarcode');
+  input.focus();
+  input.placeholder = 'Bluetooth scanner siap...';
+}
+
+function clearBarcodeField() {
+  document.getElementById('prodBarcode').value = '';
+  document.getElementById('prodBarcode').focus();
+}
+
+// ===================== LABEL PRINT DIALOG =====================
+function updateLabelDialogStatus() { var c = (typeof labelDevice !== 'undefined' && labelDevice && typeof labelCharacteristic !== 'undefined' && labelCharacteristic); var led = document.getElementById('labelStatusLed'), txt = document.getElementById('labelStatusText'); if (led) led.className = 'led ' + (c ? 'led-green' : 'led-red'); if (txt) txt.textContent = c ? 'Label printer terhubung' : 'Label printer tidak terhubung'; }
+
+async function bukaLabelDialog(barcode) {
+  currentLabelBarcode = barcode;
+  
+  var lastLabel = localStorage.getItem('lastLabelSettings');
+  var defW = '33', defH = '15', defGap = '2', defOx = '20', defOy = '0', defCols = '2', defQty = '10', defModel = 'AD240';
+  
+  if (lastLabel) {
     try {
-      const { data, error } = await supabaseClient
-        .from('products')
-        .select('*')
-        .or(`nama.ilike.%${query}%,barcode.ilike.%${query}%,kategori.ilike.%${query}%`)
-        .order('nama').limit(50);
-      if (error) throw error;
-      renderProductTable(data || []);
-    } catch (e) {
-      console.error(e);
-      document.querySelector('#productListTable tbody').innerHTML = '<tr><td colspan="8">Gagal mencari data</td></tr>';
-    }
-  }, 300);
+      var ls = JSON.parse(lastLabel);
+      defW = ls.w || defW;
+      defH = ls.h || defH;
+      defGap = ls.g || defGap;
+      defOx = ls.ox || defOx;
+      defOy = ls.oy || defOy;
+      defCols = ls.c || defCols;
+      defQty = ls.q || defQty;
+      defModel = ls.m || defModel;
+    } catch(e) {}
+  }
+  
+  document.getElementById('labelWidthMM').value = defW;
+  document.getElementById('labelHeightMM').value = defH;
+  document.getElementById('labelGapMM').value = defGap;
+  document.getElementById('labelDirection').value = '0';
+  document.getElementById('labelOffsetX').value = defOx;
+  document.getElementById('labelOffsetY').value = defOy;
+  document.getElementById('labelCols').value = defCols;
+  document.getElementById('labelQty').value = defQty;
+  document.getElementById('labelPrinterModel').value = defModel;
+  document.getElementById('showNama').checked = true;
+  document.getElementById('showHarga').checked = true;
+  document.getElementById('showBarcode').checked = true;
+  document.getElementById('showDate').checked = false;
+  document.getElementById('presetName').value = '';
+  hitungJumlahCetak();
+  refreshPresetList();
+  updateLabelDialogStatus();
+  document.getElementById('labelPrintModal').style.display = 'flex';
+  
+  localStorage.setItem('lastLabelSettings', JSON.stringify({
+    w: defW, h: defH, g: defGap, ox: defOx, oy: defOy, c: defCols, q: defQty, m: defModel
+  }));
 }
 
-async function editProdukDariDaftar(b) { if (!currentUser || currentUser.role !== 'admin') return; document.getElementById('prodBarcode').value = b; cariAtauTambahProduk(); }
-async function hapusProdukDariDaftar(b) { if (!currentUser || currentUser.role !== 'admin') return; if (!confirm('Hapus?')) return; await deleteProduct(b); allProductsCache = null; refreshProductList(); }
+function hitungJumlahCetak() { var q = parseInt(document.getElementById('labelQty').value) || 0, c = parseInt(document.getElementById('labelCols').value) || 2; document.getElementById('labelPrintCount').value = (q > 0 && c > 0) ? Math.ceil(q / c) : 0; }
 
-function generateBarcode() {
-  const now = new Date();
-  const y = now.getFullYear().toString().slice(-2);
-  const m = ('0'+(now.getMonth()+1)).slice(-2);
-  const d = ('0'+now.getDate()).slice(-2);
-  const h = ('0'+now.getHours()).slice(-2);
-  const i = ('0'+now.getMinutes()).slice(-2);
-  const s = ('0'+now.getSeconds()).slice(-2);
-  document.getElementById('prodBarcode').value = y+m+d+h+i+s;
-  cariAtauTambahProduk();
+async function cetakLabelPDF() {
+  var p = await getProductByBarcode(currentLabelBarcode); if (!p) return alert('Produk tidak ditemukan');
+  var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: [33, 15] }); var img = new Image(); img.crossOrigin = 'Anonymous';
+  img.onload = function() { doc.addImage(img, 'PNG', 2, 2, 9, 9); doc.setFontSize(5); doc.text(doc.splitTextToSize(p.nama || 'Produk', 23), 12, 3); doc.setFontSize(6); doc.setFont(undefined, 'bold'); doc.text('Rp ' + (p.harga_jual || 0).toLocaleString('id'), 12, 9); doc.setFontSize(3); doc.setFont(undefined, 'normal'); doc.text(currentLabelBarcode, 2, 12); doc.setFontSize(2); doc.text(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }), 12, 12); window.open(URL.createObjectURL(doc.output('blob')), '_blank'); };
+  img.onerror = function() { alert('Gagal memuat QR code.'); }; img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(currentLabelBarcode);
 }
 
-// ========== CETAK LABEL QR ==========
-async function cetakLabelQR(barcode) {
-  const product = await getProductByBarcode(barcode);
-  if (!product) return alert('Produk tidak ditemukan');
-  const nama = product.nama || 'Produk';
-  const harga = 'Rp ' + (product.harga_jual||0).toLocaleString('id');
-  const barcodeText = product.barcode||'';
-  const tglCetak = new Date().toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(barcodeText)}`;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({orientation:'landscape', unit:'mm', format:[33,15]});
-  const qrImage = new Image(); qrImage.crossOrigin = 'Anonymous';
-  qrImage.onload = () => {
-    doc.addImage(qrImage,'PNG',2,2,9,9);
-    doc.setFontSize(5); const namaLines = doc.splitTextToSize(nama,23); doc.text(namaLines,12,3);
-    doc.setFontSize(6); doc.setFont(undefined,'bold'); doc.text(harga,12,9);
-    doc.setFontSize(3); doc.setFont(undefined,'normal'); doc.text(barcodeText,2,12);
-    doc.setFontSize(2); doc.text(tglCetak,12,12);
-    const blob = doc.output('blob'); const url = URL.createObjectURL(blob); window.open(url,'_blank');
-  };
-  qrImage.onerror = () => alert('Gagal memuat QR code.');
-  qrImage.src = qrUrl;
+async function cetakLabelDariDialog() { if (!currentLabelBarcode) return alert('Pilih produk'); if (typeof labelDevice === 'undefined' || !labelDevice) { alert('⚠️ Label printer tidak terhubung!'); return; } await cetakLabelLangsung(currentLabelBarcode); }
+
+function simpanLabelSettings() {
+  var n = document.getElementById('presetName').value.trim(); if (!n) { alert('Beri nama template!'); return; }
+  var s = { widthMM: document.getElementById('labelWidthMM').value, heightMM: document.getElementById('labelHeightMM').value, gapMM: document.getElementById('labelGapMM').value, direction: document.getElementById('labelDirection').value, offsetXMM: document.getElementById('labelOffsetX').value, offsetYMM: document.getElementById('labelOffsetY').value, cols: document.getElementById('labelCols').value, qty: document.getElementById('labelQty').value, model: document.getElementById('labelPrinterModel').value, showNama: document.getElementById('showNama').checked, showHarga: document.getElementById('showHarga').checked, showBarcode: document.getElementById('showBarcode').checked, showDate: document.getElementById('showDate').checked };
+  var p = {}, sv = localStorage.getItem('labelPresets'); if (sv) { try { p = JSON.parse(sv); } catch(e) {} } p[n] = s; localStorage.setItem('labelPresets', JSON.stringify(p)); refreshPresetList();
+  document.getElementById('presetName').value = ''; alert('Template "' + n + '" disimpan!');
 }
+
+function refreshPresetList() { var sel = document.getElementById('presetList'); sel.innerHTML = '<option value="">-- Pilih template --</option>'; var sv = localStorage.getItem('labelPresets'); if (sv) { try { var p = JSON.parse(sv); Object.keys(p).sort().forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); }); } catch(e) {} } }
+
+function muatLabelPreset() {
+  var n = document.getElementById('presetList').value; if (!n) { alert('Pilih template!'); return; } var sv = localStorage.getItem('labelPresets'); if (!sv) return;
+  try { var p = JSON.parse(sv), s = p[n]; if (!s) return;
+    document.getElementById('labelWidthMM').value = s.widthMM || '33'; document.getElementById('labelHeightMM').value = s.heightMM || '15';
+    document.getElementById('labelGapMM').value = s.gapMM || '2'; document.getElementById('labelDirection').value = s.direction || '0';
+    document.getElementById('labelOffsetX').value = s.offsetXMM || '20'; document.getElementById('labelOffsetY').value = s.offsetYMM || '0';
+    if (s.cols !== undefined) document.getElementById('labelCols').value = s.cols; document.getElementById('labelQty').value = s.qty || '10';
+    if (s.model) document.getElementById('labelPrinterModel').value = s.model;
+    document.getElementById('showNama').checked = s.showNama !== false; document.getElementById('showHarga').checked = s.showHarga !== false;
+    document.getElementById('showBarcode').checked = s.showBarcode !== false; document.getElementById('showDate').checked = s.showDate === true;
+    hitungJumlahCetak(); alert('Template "' + n + '" dimuat!');
+  } catch(e) {}
+}
+
+function hapusLabelPreset() { var n = document.getElementById('presetList').value; if (!n) return; if (!confirm('Hapus template?')) return; var sv = localStorage.getItem('labelPresets'); if (!sv) return; try { var p = JSON.parse(sv); delete p[n]; localStorage.setItem('labelPresets', JSON.stringify(p)); refreshPresetList(); alert('Template dihapus!'); } catch(e) {} }
+
+function resetLabelSettings() {
+  document.getElementById('labelWidthMM').value = '33'; document.getElementById('labelHeightMM').value = '15';
+  document.getElementById('labelGapMM').value = '2'; document.getElementById('labelDirection').value = '0';
+  document.getElementById('labelOffsetX').value = '20'; document.getElementById('labelOffsetY').value = '0';
+  document.getElementById('labelCols').value = '2'; document.getElementById('labelQty').value = '10';
+  document.getElementById('labelPrinterModel').value = 'AD240';
+  document.getElementById('showNama').checked = true; document.getElementById('showHarga').checked = true;
+  document.getElementById('showBarcode').checked = true; document.getElementById('showDate').checked = false;
+  document.getElementById('presetName').value = ''; hitungJumlahCetak(); alert('Pengaturan label direset!');
+}
+
+async function cetakLabelQR(barcode) { bukaLabelDialog(barcode); }
