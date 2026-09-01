@@ -1,6 +1,36 @@
 // ===================== INVENTORY.JS (FAST + STORAGE PHOTOS + UX + LOKASI) =====================
+
+// ===================== SETUP INVENTORY =====================
 function setupInventory() {
-  document.getElementById('prodBarcode').onkeydown = function(e) { if (e.key === 'Enter') { e.preventDefault(); cariAtauTambahProduk(); } };
+  var prodBarcode = document.getElementById('prodBarcode');
+  if (prodBarcode) {
+    prodBarcode.onkeydown = function(e) { 
+      if (e.key === 'Enter') { 
+        e.preventDefault(); 
+        cariAtauTambahProduk(); 
+      } 
+    };
+    
+    // FIX: Ensure prodBarcode is enabled
+    prodBarcode.disabled = false;
+    prodBarcode.readOnly = false;
+    prodBarcode.style.pointerEvents = 'auto';
+    prodBarcode.style.background = 'white';
+    prodBarcode.style.color = '#263238';
+    
+    // Focus after a short delay
+    setTimeout(function() {
+      prodBarcode.focus();
+    }, 500);
+  }
+  
+  // Fix inventory search input
+  var invSearch = document.getElementById('invSearch');
+  if (invSearch) {
+    invSearch.disabled = false;
+    invSearch.readOnly = false;
+    invSearch.style.pointerEvents = 'auto';
+  }
 }
 
 var currentBarcode = null, fotoDihapus = false;
@@ -126,6 +156,7 @@ function renderProductTable(products) {
   tbody.innerHTML = html;
   updatePagination();
 }
+
 function updatePagination() {
   var tp = Math.ceil(totalProducts/productPageSize);
   var ex = document.getElementById('productPagination'); if (ex) ex.remove();
@@ -205,12 +236,21 @@ function isiFormProduk(produk, isNew, canEdit, isAdmin) {
   document.getElementById('stokSaatIni').textContent = produk.stok || 0; 
   document.getElementById('perubahanStok').value = 0; 
   hitungStokAkhir();
+  
+  // Ensure all inputs are enabled
+  ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) {
+      el.disabled = false;
+      el.readOnly = false;
+    }
+  });
+  
   if (canEdit) {
     document.getElementById('btnHapusProduk').style.display = (isNew || !isAdmin) ? 'none' : 'inline-block';
     document.getElementById('btnSimpanProduk').style.display = 'inline-block';
     document.getElementById('btnBatalProduk').style.display = 'inline-block';
     document.getElementById('btnHapusFoto').style.display = 'block';
-    ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){document.getElementById(id).readOnly=false;document.getElementById(id).disabled=false;});
     document.getElementById('btnSimpanProduk').onclick = async function() {
       if (!currentBarcode) return;
       var foto = produk.foto || null;
@@ -256,7 +296,13 @@ function tutupFormProduk() {
   document.getElementById('prodFotoCamera').value = '';
   window.tempCompressedPhoto = null;
   fotoDihapus = false;
-  ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){document.getElementById(id).readOnly=false;document.getElementById(id).disabled=false;});
+  ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) {
+      el.readOnly = false;
+      el.disabled = false;
+    }
+  });
   document.getElementById('btnSimpanProduk').style.display = 'inline-block';
   document.getElementById('btnBatalProduk').style.display = 'inline-block';
   document.getElementById('btnHapusProduk').style.display = 'none';

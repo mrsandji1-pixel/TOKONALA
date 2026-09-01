@@ -10,6 +10,7 @@ var currentPesananNo = null;
 var currentVoucherData = null;
 var isOnline = navigator.onLine;
 var taxSettings = [];
+var paymentSettings = { methods: [] };
 
 // Event listener untuk online/offline
 window.addEventListener('online', function() { isOnline = true; });
@@ -132,6 +133,9 @@ async function setupTransaksi() {
                     }
                 }
             };
+            // Ensure enabled
+            scanInput.disabled = false;
+            scanInput.readOnly = false;
         }
 
         // Setup search input
@@ -148,13 +152,23 @@ async function setupTransaksi() {
             searchInput.disabled = false;
             searchInput.readOnly = false;
             searchInput.style.pointerEvents = 'auto';
+            searchInput.style.background = 'white';
+            searchInput.style.color = '#263238';
         } else {
             console.warn('searchProduct input not found');
+        }
+
+        // Setup customer name
+        var custName = document.getElementById('custName');
+        if (custName) {
+            custName.disabled = false;
+            custName.readOnly = false;
         }
 
         // Reset cart
         totalDiskonValue = 0;
         currentVoucherData = null;
+        bayarValue = 0;
         
         // Render cart
         renderCart();
@@ -331,12 +345,28 @@ function searchProductFn(query) {
                 return;
             }
             
+            console.log('Searching for:', q);
+            
+            // Search by name first
             var { data, error } = await supabaseClient
                 .from('products')
-                .select('*')
-                .or('nama.ilike.%' + q + '%,barcode.ilike.%' + q + '%,kategori.ilike.%' + q + '%')
+                .select('barcode, nama, harga_jual, stok, foto, diskon_persen, diskon_min_qty, min_stok')
+                .ilike('nama', '%' + q + '%')
                 .order('nama')
                 .limit(15);
+            
+            // If no results, search by barcode
+            if (!data || data.length === 0) {
+                var { data: data2, error: error2 } = await supabaseClient
+                    .from('products')
+                    .select('barcode, nama, harga_jual, stok, foto, diskon_persen, diskon_min_qty, min_stok')
+                    .ilike('barcode', '%' + q + '%')
+                    .order('nama')
+                    .limit(15);
+                
+                if (error2) throw error2;
+                data = data2;
+            }
             
             if (error) {
                 console.error('Search error:', error);
@@ -371,19 +401,32 @@ function searchProductFn(query) {
                 html += '<strong style="display:block;font-size:14px;color:#263238;">' + (p.nama || 'No Name') + '</strong>';
                 html += '<small style="' + stokClass + 'font-size:12px;display:block;">' + p.barcode + ' | Stok: ' + (p.stok || 0) + ' | Rp ' + (p.harga_jual || 0).toLocaleString('id') + diskonHtml + '</small>';
                 html += '</div>';
-                html += '<button class="btn btn-sm" style="background:#00897b;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0;">+</button>';
+                html += '<button class="btn btn-sm" onclick="tambahProdukKeCart(\'' + p.barcode + '\'); document.getElementById(\'searchResults\').style.display=\'none\'; document.getElementById(\'searchProduct\').value=\'\';" style="background:#00897b;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0;">+</button>';
                 html += '</div>';
             }
             
             div.innerHTML = html;
             div.style.display = 'block';
+            div.style.position = 'absolute';
+            div.style.top = 'calc(100% + 4px)';
+            div.style.left = '0';
+            div.style.right = '0';
+            div.style.width = '100%';
+            div.style.background = 'white';
+            div.style.border = '1.5px solid #e0e4e8';
+            div.style.borderRadius = '8px';
+            div.style.maxHeight = '280px';
+            div.style.overflowY = 'auto';
+            div.style.zIndex = '1000';
+            div.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
             
-            // Event listener for each item
+            // Click on item to add to cart
             var items = div.querySelectorAll('.search-item[data-barcode]');
             for (var j = 0; j < items.length; j++) {
                 (function(item) {
                     item.onclick = function(e) {
-                        e.preventDefault();
+                        // Jangan trigger jika klik tombol
+                        if (e.target.tagName === 'BUTTON') return;
                         var barcode = this.dataset.barcode;
                         if (barcode) {
                             console.log('Selected product:', barcode);
@@ -392,30 +435,6 @@ function searchProductFn(query) {
                             if (input) input.value = '';
                             tambahProdukKeCart(barcode);
                         }
-                    };
-                    // Also handle click on the button inside
-                    var btn = item.querySelector('.btn');
-                    if (btn) {
-                        btn.onclick = function(e) {
-                            e.stopPropagation();
-                            var parent = this.closest('.search-item');
-                            if (parent) {
-                                var barcode = parent.dataset.barcode;
-                                if (barcode) {
-                                    div.style.display = 'none';
-                                    var input = document.getElementById('searchProduct');
-                                    if (input) input.value = '';
-                                    tambahProdukKeCart(barcode);
-                                }
-                            }
-                        };
-                    }
-                    // Hover effect
-                    item.onmouseenter = function() {
-                        this.style.background = '#e0f2f1';
-                    };
-                    item.onmouseleave = function() {
-                        this.style.background = 'white';
                     };
                 })(items[j]);
             }
@@ -536,7 +555,8 @@ function renderCart() {
         return;
     }
     
-    cart.forEach(function(item, idx) {
+    for (var idx = 0; idx < cart.length; idx++) {
+        var item = cart[idx];
         var sub = item.harga * item.qty;
         var diskon = item.diskon || 0;
         subtotalItemNetto += sub - diskon;
@@ -562,7 +582,7 @@ function renderCart() {
         html += '</td>';
         
         row.innerHTML = html;
-    });
+    }
     
     // Update total
     updateTotalDisplay(subtotalItemNetto);
@@ -805,7 +825,9 @@ async function bayarDanCetak() {
         if (typeof isOnline !== 'undefined' && isOnline) {
             await insertTransaction(trxData);
         } else if (typeof isOnline !== 'undefined' && !isOnline) {
-            await queueOfflineTransaction(trxData);
+            if (typeof queueOfflineTransaction === 'function') {
+                await queueOfflineTransaction(trxData);
+            }
         } else {
             await insertTransaction(trxData);
         }
