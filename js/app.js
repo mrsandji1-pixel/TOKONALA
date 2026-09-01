@@ -1,5 +1,45 @@
 // ===================== APP.JS =====================
 
+// ===================== FIX SEARCH INPUT FOCUS =====================
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix search input focus
+    var searchInput = document.getElementById('searchProduct');
+    if (searchInput) {
+        searchInput.addEventListener('focus', function() {
+            this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        
+        // Ensure input is always enabled
+        searchInput.disabled = false;
+        searchInput.readOnly = false;
+        searchInput.style.pointerEvents = 'auto';
+    }
+    
+    // Fix all input fields
+    var inputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="password"]');
+    for (var i = 0; i < inputs.length; i++) {
+        inputs[i].disabled = false;
+        inputs[i].readOnly = false;
+    }
+});
+
+// Also fix after login
+function fixInputsAfterLogin() {
+    setTimeout(function() {
+        var searchInput = document.getElementById('searchProduct');
+        if (searchInput) {
+            searchInput.disabled = false;
+            searchInput.readOnly = false;
+            searchInput.style.pointerEvents = 'auto';
+        }
+        var inputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="password"]');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].disabled = false;
+            inputs[i].readOnly = false;
+        }
+    }, 500);
+}
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(registrations) {
     registrations.forEach(function(registration) {
@@ -23,10 +63,10 @@ document.querySelectorAll('.tab-btn').forEach(b => {
     if (activeTab === 'setting') { muatProfilToko(); tampilkanUserList(); aturHakAkses(); loadFeatures(); }
     if (activeTab === 'fitur') { setupFiturPage(); }
     if (activeTab === 'utang') { if (typeof setupUtang === 'function') setupUtang(); }
-if (activeTab === 'opname') { if (typeof setupOpname === 'function') setupOpname(); }
-if (activeTab === 'biaya') { if (typeof setupBiaya === 'function') setupBiaya(); }
-if (activeTab === 'multiuser') { if (typeof setupMultiUser === 'function') setupMultiUser(); }
-if (activeTab === 'emailstruk') { if (typeof setupEmailStruk === 'function') setupEmailStruk(); }
+    if (activeTab === 'opname') { if (typeof setupOpname === 'function') setupOpname(); }
+    if (activeTab === 'biaya') { if (typeof setupBiaya === 'function') setupBiaya(); }
+    if (activeTab === 'multiuser') { if (typeof setupMultiUser === 'function') setupMultiUser(); }
+    if (activeTab === 'emailstruk') { if (typeof setupEmailStruk === 'function') setupEmailStruk(); }
     if (activeTab === 'inventory') refreshProductList();
     if (activeTab === 'transaksi') {
       document.getElementById('scanInputTrans').focus();

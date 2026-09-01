@@ -125,6 +125,9 @@ async function login() {
     }
 
     startSessionTracking();
+    
+    // FIX: Fix inputs after login
+    fixInputsAfterLogin();
 
   } catch(err) {
     errorEl.textContent = 'Error koneksi. Coba lagi.';
@@ -184,6 +187,9 @@ function checkSession() {
     }
 
     startSessionTracking();
+    
+    // FIX: Fix inputs after session restore
+    fixInputsAfterLogin();
 
     return true;
   }
@@ -432,13 +438,30 @@ async function disconnectAllUsers() {
   }
 }
 
-// ---- USER MANAGEMENT ----
+// ===================== USER MANAGEMENT =====================
 async function tambahUser() {
   if(!currentUser||currentUser.role!=='admin')return;
   var u=document.getElementById('newUsername').value.trim(),p=document.getElementById('newPassword').value,r=document.getElementById('newRole').value;
   if(!u||!p)return alert('Isi username dan password');
-  await supabaseClient.from('users').upsert({username:u,password_hash:await hashPassword(p),role:r});
-  tampilkanUserList();document.getElementById('newUsername').value='';document.getElementById('newPassword').value='';
+  
+  // Check if user already exists
+  var check = await supabaseClient.from('users').select('username').eq('username', u);
+  if (check.data && check.data.length > 0) {
+    alert('Username sudah digunakan!');
+    return;
+  }
+  
+  await supabaseClient.from('users').insert({
+    username: u,
+    password_hash: await hashPassword(p),
+    role: r,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  });
+  tampilkanUserList();
+  document.getElementById('newUsername').value='';
+  document.getElementById('newPassword').value='';
+  alert('✅ User ' + u + ' berhasil ditambahkan!');
 }
 
 async function hapusUser(username) {
@@ -451,20 +474,52 @@ async function hapusUser(username) {
 
 function editUser(username) {
   if(!currentUser||currentUser.role!=='admin')return;
-  supabaseClient.from('users').select('*').eq('username',username).single().then(function(r){var u=r.data;if(!u)return;document.getElementById('editUsername').value=u.username;document.getElementById('editUsernameDisplay').value=u.username;document.getElementById('editRole').value=u.role;document.getElementById('editPassword').value='';document.getElementById('editUserModal').style.display='flex';});
+  supabaseClient.from('users').select('*').eq('username',username).single().then(function(r){
+    var u=r.data;
+    if(!u)return;
+    document.getElementById('editUsername').value=u.username;
+    document.getElementById('editUsernameDisplay').value=u.username;
+    document.getElementById('editRole').value=u.role;
+    document.getElementById('editPassword').value='';
+    document.getElementById('editUserModal').style.display='flex';
+  });
 }
 
 async function simpanEditUser() {
-  var u=document.getElementById('editUsername').value,p=document.getElementById('editPassword').value,r=document.getElementById('editRole').value;
-  var upd={role:r};if(p)upd.password_hash=await hashPassword(p);
+  var u=document.getElementById('editUsername').value;
+  var p=document.getElementById('editPassword').value;
+  var r=document.getElementById('editRole').value;
+  var upd = { role: r, updated_at: new Date().toISOString() };
+  if(p) upd.password_hash = await hashPassword(p);
   await supabaseClient.from('users').update(upd).eq('username',u);
-  document.getElementById('editUserModal').style.display='none';tampilkanUserList();
+  document.getElementById('editUserModal').style.display='none';
+  tampilkanUserList();
+  alert('✅ User ' + u + ' berhasil diupdate!');
 }
 
 async function tampilkanUserList() {
-  if(!currentUser||currentUser.role!=='admin'){document.getElementById('userListBody').innerHTML='<tr><td colspan="3">Admin only</td></tr>';return;}
-  var r=await supabaseClient.from('users').select('*'),users=r.data,tbody=document.getElementById('userListBody');
+  if(!currentUser||currentUser.role!=='admin'){
+    var tbody = document.getElementById('userListBody');
+    if(tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#90a4ae;">Admin only</td></tr>';
+    return;
+  }
+  var r=await supabaseClient.from('users').select('*').order('username');
+  var users=r.data;
+  var tbody=document.getElementById('userListBody');
+  if(!tbody) return;
   tbody.innerHTML='';
-  if(!users||!users.length){tbody.innerHTML='<tr><td colspan="3">Belum ada</td></tr>';return;}
-  users.forEach(function(u){var row=tbody.insertRow(),h='<td>'+u.username+'</td><td>'+u.role+'</td><td>';h+='<button class="btn-sm" onclick="editUser(\''+u.username+'\')">✏️</button>';if(u.username!=='admin')h+=' <button class="btn-sm btn-danger" onclick="hapusUser(\''+u.username+'\')">🗑</button>';h+='</td>';row.innerHTML=h;});
+  if(!users||!users.length){
+    tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:#90a4ae;">Belum ada user</td></tr>';
+    return;
+  }
+  users.forEach(function(u){
+    var row=tbody.insertRow();
+    var h='<td>'+u.username+'</td><td>'+u.role+'</td><td>';
+    h+='<button class="btn-sm" onclick="editUser(\''+u.username+'\')" style="padding:4px 8px;background:#2196f3;color:white;border:none;border-radius:4px;cursor:pointer;">✏️</button>';
+    if(u.username!=='admin') {
+      h+=' <button class="btn-sm btn-danger" onclick="hapusUser(\''+u.username+'\')" style="padding:4px 8px;background:#e53935;color:white;border:none;border-radius:4px;cursor:pointer;">🗑</button>';
+    }
+    h+='</td>';
+    row.innerHTML=h;
+  });
 }
