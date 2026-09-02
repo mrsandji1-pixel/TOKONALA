@@ -1,17 +1,24 @@
-// ===================== FITUR TAX & SERVICE =====================
+// ===================== FITUR TAX & SERVICE - FIXED VERSION =====================
 var taxSettings = {
   taxes: []
 };
 
 async function loadTaxSettings() {
-  var s = await getSettings();
-  if (s.tax_config && Array.isArray(s.tax_config)) {
-    taxSettings.taxes = s.tax_config;
-  } else {
+  try {
+    var s = await getSettings();
+    if (s.tax_config && Array.isArray(s.tax_config)) {
+      taxSettings.taxes = s.tax_config;
+    } else if (s.tax_config && typeof s.tax_config === 'string') {
+      try { taxSettings.taxes = JSON.parse(s.tax_config); } catch(e) { taxSettings.taxes = []; }
+    } else {
+      taxSettings.taxes = [];
+    }
+  } catch(e) {
     taxSettings.taxes = [];
   }
 }
 
+// FIXED: Perhitungan tax yang benar
 function hitungTax(subtotal) {
   if (!taxSettings.taxes || !taxSettings.taxes.length) return 0;
   
@@ -26,12 +33,14 @@ function hitungTax(subtotal) {
       amount = t.nilai;
     }
     
-    if (t.mode === 'include') {
-      totalTax += Math.round(subtotal - (subtotal / (1 + t.nilai / 100)));
-    } else if (t.mode === 'add') {
+    if (t.mode === 'add') {
       totalTax += amount;
     } else if (t.mode === 'deduct') {
       totalTax -= amount;
+    } else if (t.mode === 'include') {
+      // FIXED: Untuk mode include, pajak sudah termasuk dalam subtotal
+      // Jadi kita hitung pajak yang terkandung dalam subtotal
+      totalTax += Math.round(subtotal * (t.nilai / (100 + t.nilai)));
     }
   });
   return totalTax;
@@ -39,17 +48,26 @@ function hitungTax(subtotal) {
 
 function getTaxList(subtotal) {
   var list = [];
+  if (!taxSettings.taxes || !taxSettings.taxes.length) return list;
+  
   taxSettings.taxes.forEach(function(t) {
     if (!t.aktif) return;
     
-    var amount = 0;
+    var jumlah = 0;
     if (t.tipe === 'persen') {
-      amount = Math.round((t.nilai / 100) * subtotal);
+      if (t.mode === 'include') {
+        // FIXED: Untuk include, pajak dihitung dari subtotal
+        jumlah = Math.round(subtotal * (t.nilai / (100 + t.nilai)));
+      } else {
+        jumlah = Math.round((t.nilai / 100) * subtotal);
+      }
     } else {
-      amount = t.nilai;
+      jumlah = t.nilai;
     }
     
-    var jumlah = t.mode === 'include' ? Math.round(subtotal - (subtotal / (1 + t.nilai / 100))) : (t.mode === 'add' ? amount : -amount);
+    if (t.mode === 'deduct') {
+      jumlah = -Math.abs(jumlah);
+    }
     
     list.push({
       nama: t.nama,
@@ -67,6 +85,10 @@ async function formPengaturanTax() {
   }
   
   await loadTaxSettings();
+  
+  // Close existing modal
+  var existingModal = document.getElementById('taxModal');
+  if (existingModal) existingModal.remove();
   
   var modal = document.createElement('div');
   modal.id = 'taxModal';
@@ -111,7 +133,12 @@ async function formPengaturanTax() {
 
 function tambahTaxRow() {
   var tbody = document.getElementById('taxRows');
-  var index = tbody.querySelectorAll('tr').length;
+  
+  // Remove empty state if exists
+  var emptyRow = tbody.querySelector('td[colspan="6"]');
+  if (emptyRow) {
+    tbody.innerHTML = '';
+  }
   
   var tr = document.createElement('tr');
   tr.innerHTML = '<td><input type="checkbox" checked></td>' +
@@ -143,7 +170,7 @@ async function simpanTax() {
     var tipe = selects[0].value;
     var mode = selects[1].value;
     
-    if (nama && nilai > 0) {
+    if (nama) {
       taxes.push({ aktif: aktif, nama: nama, tipe: tipe, nilai: nilai, mode: mode });
     }
   });
@@ -159,8 +186,11 @@ async function simpanTax() {
   alert('✅ Tax & Service disimpan (' + taxes.length + ' item)');
 }
 
-async function setupTaxModal(containerId) {
+// FIXED: This is the function that fitur-loader.js calls
+async function setupModal_tax(containerId) {
   var container = document.getElementById(containerId);
+  if (!container) return;
+  
   await loadTaxSettings();
   
   var isAdminUser = currentUser && currentUser.role === 'admin';
@@ -179,7 +209,7 @@ async function setupTaxModal(containerId) {
   } else {
     html += '<table class="user-table"><thead><tr><th>Nama</th><th>Tipe</th><th>Nilai</th><th>Mode</th></tr></thead><tbody>';
     activeTaxes.forEach(function(t) {
-      var modeLabel = t.mode === 'include' ? 'Include' : (t.mode === 'add' ? 'Add' : 'Deduct');
+      var modeLabel = t.mode === 'include' ? 'Include (sudah termasuk)' : (t.mode === 'add' ? 'Add (ditambahkan)' : 'Deduct (dikurangi)');
       var nilaiLabel = t.tipe === 'persen' ? t.nilai + '%' : 'Rp ' + t.nilai.toLocaleString('id');
       html += '<tr><td>' + t.nama + '</td><td>' + (t.tipe === 'persen' ? '%' : 'Rp') + '</td><td>' + nilaiLabel + '</td><td>' + modeLabel + '</td></tr>';
     });
@@ -188,4 +218,9 @@ async function setupTaxModal(containerId) {
   
   html += '</div>';
   container.innerHTML = html;
+}
+
+// For backward compatibility
+async function setupTaxModal(containerId) {
+  await setupModal_tax(containerId);
 }

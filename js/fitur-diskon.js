@@ -1,18 +1,23 @@
-// ===================== FITUR DISKON (SIMPLE TOGGLE) =====================
+// ===================== FITUR DISKON - FIXED VERSION =====================
 var discountSettings = {
   diskonItemActive: true,
   diskonTotalActive: true
 };
 
 async function loadDiscountSettings() {
-  var s = await getSettings();
-  if (s.discount_config) {
-    var config = s.discount_config;
-    if (typeof config === 'string') {
-      try { config = JSON.parse(config); } catch(e) { config = {}; }
+  try {
+    var s = await getSettings();
+    if (s.discount_config) {
+      var config = s.discount_config;
+      if (typeof config === 'string') {
+        try { config = JSON.parse(config); } catch(e) { config = {}; }
+      }
+      discountSettings.diskonItemActive = config.diskon_item !== false;
+      discountSettings.diskonTotalActive = config.diskon_total !== false;
     }
-    discountSettings.diskonItemActive = config.diskon_item !== false;
-    discountSettings.diskonTotalActive = config.diskon_total !== false;
+  } catch(e) {
+    discountSettings.diskonItemActive = true;
+    discountSettings.diskonTotalActive = true;
   }
 }
 
@@ -27,9 +32,13 @@ async function formPengaturanDiskon() {
   
   await loadDiscountSettings();
   
-  // Close existing fitur modal if open
-  var existingModal = document.getElementById('fiturModal');
+  // Close existing modal
+  var existingModal = document.getElementById('diskonModal');
   if (existingModal) existingModal.remove();
+  
+  // Close fitur modal if open
+  var fiturModal = document.getElementById('fiturModal');
+  if (fiturModal) fiturModal.remove();
   
   var modal = document.createElement('div');
   modal.id = 'diskonModal';
@@ -53,12 +62,12 @@ async function formPengaturanDiskon() {
   html += '<div style="background:#f5f5f5;padding:12px;border-radius:8px;margin-bottom:12px;">';
   html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">';
   html += '<input type="checkbox" id="diskonTotalToggle" ' + (discountSettings.diskonTotalActive ? 'checked' : '') + ' style="width:20px;height:20px;cursor:pointer;">';
-  html += '<span><b>Diskon Total</b><br><small style="color:#666;">Tombol 💰 Diskon Lagi untuk total transaksi</small></span>';
+  html += '<span><b>Diskon Total</b><br><small style="color:#666;">Tombol 💰 Diskon Total untuk seluruh transaksi</small></span>';
   html += '</label>';
   html += '</div>';
   
   // Add Grosir Diskon section if feature is active
-  if (activeFeatures && activeFeatures.grosir) {
+  if (typeof activeFeatures !== 'undefined' && activeFeatures && activeFeatures.grosir) {
     html += '<hr style="margin:16px 0;border:none;border-top:1px solid #e0e0e0;">';
     html += '<div style="background:#fff3e0;padding:12px;border-radius:8px;border:1px solid #ff9800;margin-bottom:12px;">';
     html += '<p style="margin:0 0 8px 0;"><b>🔥 Grosir Diskon</b></p>';
@@ -89,7 +98,6 @@ function bukaFormGrosir() {
   if (typeof formPengaturanGrosir === 'function') {
     formPengaturanGrosir();
   } else {
-    // Fallback if function doesn't exist
     alert('🔥 Grosir Diskon diatur per produk melalui form produk.\n\nBuka Inventory → pilih produk → atur bagian "Harga Grosir".');
   }
 }
@@ -108,17 +116,22 @@ async function simpanDiskon() {
     }
   });
   
-  document.getElementById('diskonModal').remove();
+  var modal = document.getElementById('diskonModal');
+  if (modal) modal.remove();
+  
   alert('✅ Pengaturan diskon disimpan');
   
-  // Refresh UI if needed
-  if (typeof aturHakAkses === 'function') {
-    aturHakAkses();
+  // Refresh cart if on transaksi page
+  if (typeof renderCart === 'function') {
+    renderCart();
   }
 }
 
-async function setupDiskonModal(containerId) {
+// FIXED: This is the function that fitur-loader.js calls
+async function setupModal_diskon(containerId) {
   var container = document.getElementById(containerId);
+  if (!container) return;
+  
   await loadDiscountSettings();
   
   var isAdminUser = currentUser && currentUser.role === 'admin';
@@ -133,10 +146,15 @@ async function setupDiskonModal(containerId) {
   html += '<p>💲 <b>Diskon Total:</b> ' + (discountSettings.diskonTotalActive ? '✅ Aktif' : '❌ Nonaktif') + '</p>';
   
   // Show grosir status if feature is active
-  if (activeFeatures && activeFeatures.grosir) {
-    html += '<p>🔥 <b>Grosir Diskon:</b> ✅ Aktif</p>';
+  if (typeof activeFeatures !== 'undefined' && activeFeatures && activeFeatures.grosir) {
+    html += '<p>🔥 <b>Grosir Diskon:</b> ✅ Aktif (diatur per produk)</p>';
   }
   
   html += '</div>';
   container.innerHTML = html;
+}
+
+// For backward compatibility
+async function setupDiskonModal(containerId) {
+  await setupModal_diskon(containerId);
 }
