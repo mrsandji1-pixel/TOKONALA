@@ -1,4 +1,4 @@
-// ===================== AUTH.JS - FIXED VERSION =====================
+// ===================== AUTH.JS - FIXED =====================
 
 var SALT_PREFIX = 'RDNPS_';
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -124,7 +124,6 @@ async function login() {
       initOfflineMode();
     }
 
-    // FIXED: Use startSessionTracking from auth.js instead of _startSession from index.html
     startSessionTracking();
 
   } catch(err) {
@@ -279,8 +278,31 @@ function clearAllDisplayedData() {
 
 function applyRoleRestrictions() {
   var role=currentUser?currentUser.role:'';
-  var tT=document.querySelector('.tab-btn[data-page="transaksi"]'),tI=document.querySelector('.tab-btn[data-page="inventory"]'),tL=document.querySelector('.tab-btn[data-page="laporan"]'),tS=document.querySelector('.tab-btn[data-page="setting"]');
-  if(tT)tT.style.display='';if(tI)tI.style.display='';if(tL)tL.style.display='';if(tS)tS.style.display='';
+  var isAdmin = role === 'admin';
+  var tT=document.querySelector('.tab-btn[data-page="transaksi"]');
+  var tI=document.querySelector('.tab-btn[data-page="inventory"]');
+  var tL=document.querySelector('.tab-btn[data-page="laporan"]');
+  var tS=document.querySelector('.tab-btn[data-page="setting"]');
+  var tF=document.querySelector('.tab-btn[data-page="fitur"]');
+  
+  if(tT)tT.style.display='';
+  if(tI)tI.style.display='';
+  if(tL)tL.style.display='';
+  if(tS)tS.style.display='';
+  
+  // FIX: Sembunyikan tab Fitur untuk non-admin
+  if(tF)tF.style.display = isAdmin ? '' : 'none';
+  
+  // Jika user non-admin sedang di halaman fitur, pindahkan ke transaksi
+  if(!isAdmin && typeof activeTab !== 'undefined' && activeTab === 'fitur'){
+    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    if(tT)tT.classList.add('active');
+    var tP=document.getElementById('page-transaksi');
+    if(tP)tP.classList.add('active');
+    activeTab='transaksi';
+  }
+  
   if(role==='gudang'){
     if(tT)tT.style.display='none';
     if(tL)tL.style.display='none';
@@ -304,7 +326,7 @@ function applyRoleRestrictions() {
   
   var fiturSection = document.getElementById('fiturSection');
   if (fiturSection) {
-    fiturSection.style.display = (role === 'admin') ? 'block' : 'none';
+    fiturSection.style.display = isAdmin ? 'block' : 'none';
   }
 }
 
