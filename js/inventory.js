@@ -1,4 +1,4 @@
-// ===================== INVENTORY.JS (FIXED FINAL) =====================
+// ===================== INVENTORY.JS (FINAL v3) =====================
 function setupInventory() {
   var prodBarcode = document.getElementById('prodBarcode');
   if (prodBarcode) {
@@ -10,12 +10,14 @@ function setupInventory() {
     };
   }
   
-  // Setup invSearch - TANPA mengganggu ketikan
+  // Setup invSearch dengan addEventListener
   var invSearch = document.getElementById('invSearch');
   if (invSearch) {
-    invSearch.onkeyup = function() {
+    invSearch.oninput = null;
+    invSearch.onkeyup = null;
+    invSearch.addEventListener('input', function() {
       window.filterProductList();
-    };
+    });
     invSearch.readOnly = false;
     invSearch.disabled = false;
   }
@@ -23,7 +25,7 @@ function setupInventory() {
 
 var currentBarcode = null, fotoDihapus = false;
 var currentLabelBarcode = null;
-var productPage = 1, productPageSize = 50, totalProducts = 0;
+var productPage = 1, productPageSize = 20, totalProducts = 0;
 
 // ===================== LOCAL STORAGE CACHE =====================
 function getLocalProducts() {
@@ -54,18 +56,36 @@ async function refreshProductList() {
   if (countEl) countEl.textContent = '...';
   
   var cached = getLocalProducts();
-  if (cached) { totalProducts = cached.length; renderProductTable(cached.slice(0, productPageSize)); }
-  
-  syncProductsIfNeeded().then(function(fresh) {
-    if (fresh && (!cached || fresh.length !== cached.length)) {
-      totalProducts = fresh.length; 
-      renderProductTable(fresh.slice(0, productPageSize));
+  if (!cached) {
+    try {
+      var r = await supabaseClient.from('products').select('*').order('nama');
+      if (r.data && r.data.length > 0) {
+        setLocalProducts(r.data);
+        cached = r.data;
+      }
+    } catch(e) {
+      console.error('Gagal load dari Supabase:', e);
     }
-  });
+  }
+  
+  if (cached) { 
+    totalProducts = cached.length; 
+    renderProductTable(cached.slice(0, productPageSize)); 
+  }
 }
 
 async function loadProductPage() {
-  var cached = getLocalProducts() || await syncProductsIfNeeded();
+  var cached = getLocalProducts();
+  if (!cached) {
+    try {
+      var r = await supabaseClient.from('products').select('*').order('nama');
+      if (r.data && r.data.length > 0) {
+        setLocalProducts(r.data);
+        cached = r.data;
+      }
+    } catch(e) {}
+  }
+  if (!cached) return;
   totalProducts = cached.length;
   renderProductTable(cached.slice((productPage-1)*productPageSize, productPage*productPageSize));
 }
@@ -79,25 +99,32 @@ function prevPage() {
   if (productPage > 1) { productPage--; loadProductPage(); } 
 }
 
-// ===================== INSTANT SEARCH - FIXED =====================
+// ===================== INSTANT SEARCH =====================
 var filterTimer = null;
 
 window.filterProductList = function() {
   clearTimeout(filterTimer);
-  filterTimer = setTimeout(function() {
+  filterTimer = setTimeout(async function() {
     var invSearchEl = document.getElementById('invSearch');
     if (!invSearchEl) return;
     
-    // SIMPAN value SEBELUM render
     var savedValue = invSearchEl.value;
-    
     var q = savedValue.trim().toLowerCase();
-    var cached = getLocalProducts();
     
-    if (!cached) { 
-      refreshProductList(); 
-      return; 
+    var cached = getLocalProducts();
+    if (!cached) {
+      try {
+        var r = await supabaseClient.from('products').select('*').order('nama');
+        if (r.data && r.data.length > 0) {
+          setLocalProducts(r.data);
+          cached = r.data;
+        }
+      } catch(e) {
+        console.error('Gagal load dari Supabase:', e);
+      }
     }
+    
+    if (!cached) return;
     
     var filtered;
     if (!q) { 
@@ -113,10 +140,8 @@ window.filterProductList = function() {
       totalProducts = filtered.length; 
     }
     
-    // Render tabel
     renderProductTable(filtered.slice(0, 100));
     
-    // RESTORE value SETELAH render
     var input = document.getElementById('invSearch');
     if (input) {
       input.value = savedValue;
@@ -157,7 +182,6 @@ function renderProductTable(products) {
   var tbody = document.querySelector('#productListTable tbody'); 
   if (!tbody) return;
   
-  // SIMPAN value input search
   var invSearchEl = document.getElementById('invSearch');
   var savedValue = invSearchEl ? invSearchEl.value : '';
   
@@ -167,9 +191,8 @@ function renderProductTable(products) {
   if (countEl) countEl.textContent = totalProducts;
   
   if (!products.length) { 
-    tbody.innerHTML = '<tr><td colspan="8">Tidak ada produk</td></tr>'; 
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Tidak ada produk</td></tr>'; 
     updatePagination(); 
-    // RESTORE value
     if (invSearchEl) invSearchEl.value = savedValue;
     return; 
   }
@@ -213,7 +236,6 @@ function renderProductTable(products) {
   tbody.innerHTML = html;
   updatePagination();
   
-  // RESTORE value
   if (invSearchEl) invSearchEl.value = savedValue;
 }
 
@@ -558,7 +580,6 @@ var cameraScannerActiveInv = false;
 var cameraCodeReaderInv = null;
 var cameraStreamInv = null;
 var lastScannedBarcodeInv = '';
-var currentZoomInv = 1;
 
 function playBeepInv() {
   try {
