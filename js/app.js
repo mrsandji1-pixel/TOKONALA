@@ -1,43 +1,32 @@
 // ===================== APP.JS =====================
 
-// ===================== FIX SEARCH INPUT FOCUS =====================
-document.addEventListener('DOMContentLoaded', function() {
-    // Fix search input focus
+// ===================== FIX INPUTS =====================
+function fixInputsAfterLogin() {
+  setTimeout(function() {
     var searchInput = document.getElementById('searchProduct');
     if (searchInput) {
-        searchInput.addEventListener('focus', function() {
-            this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-        
-        // Ensure input is always enabled
-        searchInput.disabled = false;
-        searchInput.readOnly = false;
-        searchInput.style.pointerEvents = 'auto';
+      searchInput.disabled = false;
+      searchInput.readOnly = false;
+      searchInput.style.pointerEvents = 'auto';
     }
-    
-    // Fix all input fields
     var inputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="password"]');
     for (var i = 0; i < inputs.length; i++) {
-        inputs[i].disabled = false;
-        inputs[i].readOnly = false;
+      inputs[i].disabled = false;
+      inputs[i].readOnly = false;
     }
-});
+  }, 500);
+}
 
-// Also fix after login
-function fixInputsAfterLogin() {
-    setTimeout(function() {
-        var searchInput = document.getElementById('searchProduct');
-        if (searchInput) {
-            searchInput.disabled = false;
-            searchInput.readOnly = false;
-            searchInput.style.pointerEvents = 'auto';
-        }
-        var inputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="password"]');
-        for (var i = 0; i < inputs.length; i++) {
-            inputs[i].disabled = false;
-            inputs[i].readOnly = false;
-        }
-    }, 500);
+// ===================== HIDE LOGIN OVERLAY =====================
+function hideLoginOverlay() {
+  var loginOverlay = document.getElementById('loginOverlay');
+  if (loginOverlay) {
+    loginOverlay.style.display = 'none';
+    loginOverlay.style.visibility = 'hidden';
+    loginOverlay.style.opacity = '0';
+    loginOverlay.style.pointerEvents = 'none';
+    loginOverlay.style.zIndex = '-1';
+  }
 }
 
 if ('serviceWorker' in navigator) {
@@ -107,3 +96,7 @@ window.addEventListener('popstate', function(event) {
 document.addEventListener('visibilitychange', function() {
   if (document.hidden) { backCount = 0; clearTimeout(backTimer); }
 });
+
+// ===================== EXPOSE FUNCTIONS =====================
+window.fixInputsAfterLogin = fixInputsAfterLogin;
+window.hideLoginOverlay = hideLoginOverlay;
