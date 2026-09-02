@@ -1,5 +1,6 @@
-// ===================== SETTING.JS =====================
+// ===================== SETTING.JS - FIXED VERSION =====================
 window.logoTokoDihapus = false;
+
 // ===================== SETTING POPUP FUNCTIONS =====================
 function bukaPopupSetting(jenis) {
   var modalId = 'modal' + jenis.charAt(0).toUpperCase() + jenis.slice(1);
@@ -10,9 +11,22 @@ function bukaPopupSetting(jenis) {
     void modal.offsetWidth;
     modal.classList.add('modal-show');
     
-    // Load data if needed
-    if (jenis === 'user' && typeof muatUserList === 'function') {
-      muatUserList();
+    // FIXED: Load data based on modal type
+    if (jenis === 'user') {
+      // FIXED: Use tampilkanUserList instead of muatUserList
+      if (typeof tampilkanUserList === 'function') {
+        tampilkanUserList();
+      }
+    }
+    if (jenis === 'profil') {
+      if (typeof muatProfilToko === 'function') {
+        muatProfilToko();
+      }
+    }
+    if (jenis === 'laporan') {
+      if (typeof muatProfilToko === 'function') {
+        muatProfilToko();
+      }
     }
   }
 }
@@ -39,57 +53,248 @@ document.addEventListener('click', function(e) {
 });
 
 async function muatProfilToko() {
-  var s = await getSettings();
-  if (s) {
-    document.getElementById('tokoNama').value = s.nama || ''; document.getElementById('tokoAlamat').value = s.alamat || ''; document.getElementById('tokoTelp').value = s.telp || '';
-    document.getElementById('tokoFooter').value = s.footer || ''; document.getElementById('kertasLebar').value = s.kertas_lebar || '80';
-    document.getElementById('jenisKertas').value = s.jenis_kertas || 'thermal'; document.getElementById('printerPilihan').value = s.printer || 'default';
-    document.getElementById('labelWidth').value = s.label_width || 50; document.getElementById('labelHeight').value = s.label_height || 30;
-    document.getElementById('labelGap').value = s.label_gap || 3; document.getElementById('paperCols').value = s.label_cols || 1;
-    toggleLabelSettings();
-    if (s.logo) { document.getElementById('logoPreview').src = s.logo; document.getElementById('logoPreviewContainer').style.display = 'block'; } else document.getElementById('logoPreviewContainer').style.display = 'none';
-    document.getElementById('reportEmail').value = s.report_email || ''; document.getElementById('reportFrequency').value = s.report_frequency || 'none';
-    document.getElementById('dailyTime').value = s.report_daily_time || '21'; document.getElementById('weeklyDay').value = s.report_weekly_day || '1';
-    document.getElementById('weeklyTime').value = s.report_weekly_time || '21'; document.getElementById('monthlyDate').value = s.report_monthly_date || '1';
-    document.getElementById('monthlyTime').value = s.report_monthly_time || '21'; toggleReportOptions();
-  } else {
-    document.getElementById('tokoNama').value = ''; document.getElementById('tokoAlamat').value = ''; document.getElementById('tokoTelp').value = ''; document.getElementById('tokoFooter').value = '';
-    document.getElementById('kertasLebar').value = '80'; document.getElementById('jenisKertas').value = 'thermal'; document.getElementById('printerPilihan').value = 'default';
-    document.getElementById('labelWidth').value = 50; document.getElementById('labelHeight').value = 30; document.getElementById('labelGap').value = 3; document.getElementById('paperCols').value = 1;
-    toggleLabelSettings(); document.getElementById('logoPreviewContainer').style.display = 'none';
-    document.getElementById('reportEmail').value = ''; document.getElementById('reportFrequency').value = 'none'; document.getElementById('dailyTime').value = '21';
-    document.getElementById('weeklyDay').value = '1'; document.getElementById('weeklyTime').value = '21'; document.getElementById('monthlyDate').value = '1';
-    document.getElementById('monthlyTime').value = '21'; toggleReportOptions();
+  try {
+    var s = await getSettings();
+    
+    // FIXED: Check if elements exist before setting values
+    var setVal = function(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.value = val || '';
+    };
+    
+    if (s) {
+      setVal('tokoNama', s.nama);
+      setVal('tokoAlamat', s.alamat);
+      setVal('tokoTelp', s.telp);
+      setVal('tokoFooter', s.footer);
+      setVal('kertasLebar', s.kertas_lebar || '80');
+      setVal('jenisKertas', s.jenis_kertas || 'thermal');
+      setVal('printerPilihan', s.printer || 'default');
+      setVal('labelWidth', s.label_width || 50);
+      setVal('labelHeight', s.label_height || 30);
+      setVal('labelGap', s.label_gap || 3);
+      setVal('paperCols', s.label_cols || 1);
+      
+      // FIXED: Also set label printer modal fields
+      setVal('labelWidthMM', s.label_width_mm || 33);
+      setVal('labelHeightMM', s.label_height_mm || 15);
+      setVal('labelGapMM', s.label_gap_mm || 2);
+      setVal('labelOffsetX', s.label_offset_x || 20);
+      setVal('labelOffsetY', s.label_offset_y || 0);
+      setVal('labelCols', s.label_cols || 2);
+      setVal('labelQty', s.label_qty || 10);
+      setVal('labelPrinterModel', s.label_printer_model || 'AD240');
+      setVal('labelDirection', s.label_direction || '0');
+      
+      toggleLabelSettings();
+      
+      var logoPreview = document.getElementById('logoPreview');
+      var logoContainer = document.getElementById('logoPreviewContainer');
+      if (logoPreview && logoContainer) {
+        if (s.logo) { 
+          logoPreview.src = s.logo; 
+          logoContainer.style.display = 'block'; 
+        } else {
+          logoContainer.style.display = 'none';
+        }
+      }
+      
+      setVal('reportEmail', s.report_email);
+      setVal('reportFrequency', s.report_frequency || 'none');
+      setVal('dailyTime', s.report_daily_time || '21');
+      setVal('weeklyDay', s.report_weekly_day || '1');
+      setVal('weeklyTime', s.report_weekly_time || '21');
+      setVal('monthlyDate', s.report_monthly_date || '1');
+      setVal('monthlyTime', s.report_monthly_time || '21');
+      
+      toggleReportOptions();
+    } else {
+      setVal('tokoNama', '');
+      setVal('tokoAlamat', '');
+      setVal('tokoTelp', '');
+      setVal('tokoFooter', '');
+      setVal('kertasLebar', '80');
+      setVal('jenisKertas', 'thermal');
+      setVal('printerPilihan', 'default');
+      setVal('labelWidth', 50);
+      setVal('labelHeight', 30);
+      setVal('labelGap', 3);
+      setVal('paperCols', 1);
+      
+      toggleLabelSettings();
+      
+      var logoContainer = document.getElementById('logoPreviewContainer');
+      if (logoContainer) logoContainer.style.display = 'none';
+      
+      setVal('reportEmail', '');
+      setVal('reportFrequency', 'none');
+      setVal('dailyTime', '21');
+      setVal('weeklyDay', '1');
+      setVal('weeklyTime', '21');
+      setVal('monthlyDate', '1');
+      setVal('monthlyTime', '21');
+      
+      toggleReportOptions();
+    }
+  } catch(e) {
+    console.error('muatProfilToko error:', e);
   }
 }
 
-function toggleLabelSettings() { document.getElementById('labelSettings').style.display = document.getElementById('jenisKertas').value === 'label' ? 'block' : 'none'; }
-function toggleReportOptions() { var f = document.getElementById('reportFrequency').value; document.getElementById('dailyOptions').style.display = f === 'daily' ? 'block' : 'none'; document.getElementById('weeklyOptions').style.display = f === 'weekly' ? 'block' : 'none'; document.getElementById('monthlyOptions').style.display = f === 'monthly' ? 'block' : 'none'; }
-
-async function simpanPengaturanLaporan() {
-  var e = document.getElementById('reportEmail').value.trim(), f = document.getElementById('reportFrequency').value, dt = document.getElementById('dailyTime').value;
-  var wd = document.getElementById('weeklyDay').value, wt = document.getElementById('weeklyTime').value, md = document.getElementById('monthlyDate').value, mt = document.getElementById('monthlyTime').value;
-  if (f !== 'none' && !e) { alert('Silakan isi email tujuan terlebih dahulu.'); return; }
-  await updateSettings({ report_email: e, report_frequency: f, report_daily_time: dt, report_weekly_day: wd, report_weekly_time: wt, report_monthly_date: md, report_monthly_time: mt });
-  alert('✅ Pengaturan laporan disimpan!'); localStorage.removeItem('lastReportSent'); localStorage.removeItem('lastReportSchedule');
+function toggleLabelSettings() { 
+  var jenisKertas = document.getElementById('jenisKertas');
+  var labelSettings = document.getElementById('labelSettings');
+  if (jenisKertas && labelSettings) {
+    labelSettings.style.display = jenisKertas.value === 'label' ? 'block' : 'none'; 
+  }
 }
 
-async function tesKirimLaporan() { var e = document.getElementById('reportEmail').value.trim(); if (!e) { alert('Isi email tujuan terlebih dahulu.'); return; } await simpanPengaturanLaporan(); var s = await getSettings(); var t = new Date(); try { await sendEmailResend(e, '📊 TES - Laporan POS', '✅ Ini adalah email percobaan.\n\nToko: ' + (s.nama || 'POS') + '\nTanggal: ' + t.toLocaleDateString('id-ID')); alert('✅ Email tes berhasil dikirim!'); } catch (er) { alert('❌ Gagal: ' + er.message); } }
+function toggleReportOptions() { 
+  var f = document.getElementById('reportFrequency');
+  if (!f) return;
+  var dailyOpt = document.getElementById('dailyOptions');
+  var weeklyOpt = document.getElementById('weeklyOptions');
+  var monthlyOpt = document.getElementById('monthlyOptions');
+  
+  if (dailyOpt) dailyOpt.style.display = f.value === 'daily' ? 'block' : 'none';
+  if (weeklyOpt) weeklyOpt.style.display = f.value === 'weekly' ? 'block' : 'none';
+  if (monthlyOpt) monthlyOpt.style.display = f.value === 'monthly' ? 'block' : 'none';
+}
 
-function previewLogoToko() { var f = document.getElementById('tokoLogo').files[0]; if (f) { var r = new FileReader(); r.onload = function(e) { document.getElementById('logoPreview').src = e.target.result; document.getElementById('logoPreviewContainer').style.display = 'block'; }; r.readAsDataURL(f); window.logoTokoDihapus = false; } }
-function hapusLogoToko() { document.getElementById('logoPreview').src = ''; document.getElementById('logoPreviewContainer').style.display = 'none'; document.getElementById('tokoLogo').value = ''; window.logoTokoDihapus = true; }
+async function simpanPengaturanLaporan() {
+  var e = document.getElementById('reportEmail').value.trim();
+  var f = document.getElementById('reportFrequency').value;
+  var dt = document.getElementById('dailyTime').value;
+  var wd = document.getElementById('weeklyDay').value;
+  var wt = document.getElementById('weeklyTime').value;
+  var md = document.getElementById('monthlyDate').value;
+  var mt = document.getElementById('monthlyTime').value;
+  
+  if (f !== 'none' && !e) { alert('Silakan isi email tujuan terlebih dahulu.'); return; }
+  
+  await updateSettings({ 
+    report_email: e, 
+    report_frequency: f, 
+    report_daily_time: dt, 
+    report_weekly_day: wd, 
+    report_weekly_time: wt, 
+    report_monthly_date: md, 
+    report_monthly_time: mt 
+  });
+  
+  alert('✅ Pengaturan laporan disimpan!'); 
+  localStorage.removeItem('lastReportSent'); 
+  localStorage.removeItem('lastReportSchedule');
+}
+
+async function tesKirimLaporan() { 
+  var e = document.getElementById('reportEmail').value.trim(); 
+  if (!e) { alert('Isi email tujuan terlebih dahulu.'); return; } 
+  await simpanPengaturanLaporan(); 
+  var s = await getSettings(); 
+  var t = new Date(); 
+  try { 
+    await sendEmailResend(e, '📊 TES - Laporan POS', '✅ Ini adalah email percobaan.\n\nToko: ' + (s.nama || 'POS') + '\nTanggal: ' + t.toLocaleDateString('id-ID')); 
+    alert('✅ Email tes berhasil dikirim!'); 
+  } catch (er) { 
+    alert('❌ Gagal mengirim email. Pastikan backend email sudah dikonfigurasi.\n\nError: ' + er.message); 
+  } 
+}
+
+function previewLogoToko() { 
+  var f = document.getElementById('tokoLogo').files[0]; 
+  if (f) { 
+    var r = new FileReader(); 
+    r.onload = function(e) { 
+      var preview = document.getElementById('logoPreview');
+      var container = document.getElementById('logoPreviewContainer');
+      if (preview && container) {
+        preview.src = e.target.result; 
+        container.style.display = 'block'; 
+      }
+    }; 
+    r.readAsDataURL(f); 
+    window.logoTokoDihapus = false; 
+  } 
+}
+
+function hapusLogoToko() { 
+  var preview = document.getElementById('logoPreview');
+  var container = document.getElementById('logoPreviewContainer');
+  var input = document.getElementById('tokoLogo');
+  
+  if (preview) preview.src = ''; 
+  if (container) container.style.display = 'none'; 
+  if (input) input.value = ''; 
+  window.logoTokoDihapus = true; 
+}
 
 async function simpanProfil() {
   if (!currentUser || currentUser.role !== 'admin') return;
-  var n = document.getElementById('tokoNama').value, a = document.getElementById('tokoAlamat').value, t = document.getElementById('tokoTelp').value, f = document.getElementById('tokoFooter').value;
-  var kl = document.getElementById('kertasLebar').value, jk = document.getElementById('jenisKertas').value, pr = document.getElementById('printerPilihan').value;
-  var lw = parseFloat(document.getElementById('labelWidth').value) || 50, lh = parseFloat(document.getElementById('labelHeight').value) || 30, lg = parseFloat(document.getElementById('labelGap').value) || 3, lc = parseInt(document.getElementById('paperCols').value) || 1;
-  var logo = null; if (!window.logoTokoDihapus) { var fi = document.getElementById('tokoLogo'); if (fi.files[0]) { logo = await toBase64(fi.files[0]); } else { var ss = await getSettings(); logo = ss.logo || null; } }
-  await updateSettings({ nama: n, alamat: a, telp: t, logo: logo, footer: f, kertas_lebar: kl, jenis_kertas: jk, printer: pr, label_width: lw, label_height: lh, label_gap: lg, label_cols: lc });
-  alert('Profil disimpan!'); window.logoTokoDihapus = false; document.getElementById('tokoLogo').value = ''; if (typeof invalidateSettingsCache === 'function') invalidateSettingsCache(); await muatProfilToko();
+  
+  var n = document.getElementById('tokoNama').value;
+  var a = document.getElementById('tokoAlamat').value;
+  var t = document.getElementById('tokoTelp').value;
+  var f = document.getElementById('tokoFooter').value;
+  var kl = document.getElementById('kertasLebar').value;
+  var jk = document.getElementById('jenisKertas').value;
+  var pr = document.getElementById('printerPilihan').value;
+  var lw = parseFloat(document.getElementById('labelWidth').value) || 50;
+  var lh = parseFloat(document.getElementById('labelHeight').value) || 30;
+  var lg = parseFloat(document.getElementById('labelGap').value) || 3;
+  var lc = parseInt(document.getElementById('paperCols').value) || 1;
+  
+  var logo = null; 
+  if (!window.logoTokoDihapus) { 
+    var fi = document.getElementById('tokoLogo'); 
+    if (fi && fi.files[0]) { 
+      logo = await toBase64(fi.files[0]); 
+    } else { 
+      var ss = await getSettings(); 
+      logo = ss.logo || null; 
+    } 
+  }
+  
+  await updateSettings({ 
+    nama: n, alamat: a, telp: t, logo: logo, footer: f, 
+    kertas_lebar: kl, jenis_kertas: jk, printer: pr, 
+    label_width: lw, label_height: lh, label_gap: lg, label_cols: lc 
+  });
+  
+  alert('Profil disimpan!'); 
+  window.logoTokoDihapus = false; 
+  var input = document.getElementById('tokoLogo');
+  if (input) input.value = ''; 
+  if (typeof invalidateSettingsCache === 'function') invalidateSettingsCache(); 
+  await muatProfilToko();
 }
 
-async function simpanPengaturanCetak() { var s = await getSettings(); await updateSettings({ ...s, kertas_lebar: document.getElementById('kertasLebar').value, jenis_kertas: document.getElementById('jenisKertas').value, printer: document.getElementById('printerPilihan').value, label_width: parseFloat(document.getElementById('labelWidth').value) || 50, label_height: parseFloat(document.getElementById('labelHeight').value) || 30, label_gap: parseFloat(document.getElementById('labelGap').value) || 3, label_cols: parseInt(document.getElementById('paperCols').value) || 1 }); alert('Pengaturan cetak disimpan!'); if (typeof invalidateSettingsCache === 'function') invalidateSettingsCache(); }
+async function simpanPengaturanCetak() { 
+  var s = await getSettings(); 
+  
+  // FIXED: Also save label printer settings
+  await updateSettings({ 
+    ...s, 
+    kertas_lebar: document.getElementById('kertasLebar').value, 
+    jenis_kertas: document.getElementById('jenisKertas').value, 
+    printer: document.getElementById('printerPilihan').value, 
+    label_width: parseFloat(document.getElementById('labelWidth').value) || 50, 
+    label_height: parseFloat(document.getElementById('labelHeight').value) || 30, 
+    label_gap: parseFloat(document.getElementById('labelGap').value) || 3, 
+    label_cols: parseInt(document.getElementById('paperCols').value) || 1,
+    label_width_mm: parseFloat(document.getElementById('labelWidthMM').value) || 33,
+    label_height_mm: parseFloat(document.getElementById('labelHeightMM').value) || 15,
+    label_gap_mm: parseFloat(document.getElementById('labelGapMM').value) || 2,
+    label_offset_x: parseFloat(document.getElementById('labelOffsetX').value) || 20,
+    label_offset_y: parseFloat(document.getElementById('labelOffsetY').value) || 0,
+    label_direction: document.getElementById('labelDirection').value || '0',
+    label_qty: parseInt(document.getElementById('labelQty').value) || 10,
+    label_printer_model: document.getElementById('labelPrinterModel').value || 'AD240'
+  }); 
+  
+  alert('Pengaturan cetak disimpan!'); 
+  if (typeof invalidateSettingsCache === 'function') invalidateSettingsCache(); 
+}
 
 function aturHakAkses() {
   var role = currentUser ? currentUser.role : 'kasir';
@@ -98,16 +303,22 @@ function aturHakAkses() {
   var isStaff = role === 'staff';
   var isGudang = role === 'gudang';
   
-  // Show/hide setting items based on role
-  document.getElementById('settingItemProfil').style.display = isAdmin ? 'flex' : 'none';
-  document.getElementById('settingItemFitur').style.display = isAdmin ? 'flex' : 'none';
-  document.getElementById('settingItemLaporan').style.display = isAdmin ? 'flex' : 'none';
-  document.getElementById('settingItemCetak').style.display = (isAdmin || isKasir) ? 'flex' : 'none';
-  document.getElementById('settingItemUser').style.display = isAdmin ? 'flex' : 'none';
-  document.getElementById('settingItemData').style.display = isAdmin ? 'flex' : 'none';
+  // FIXED: Check if elements exist before setting display
+  var setDisplay = function(id, show) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = show ? 'flex' : 'none';
+  };
+  
+  setDisplay('settingItemProfil', isAdmin);
+  setDisplay('settingItemFitur', isAdmin);
+  setDisplay('settingItemLaporan', isAdmin);
+  setDisplay('settingItemCetak', isAdmin || isKasir);
+  setDisplay('settingItemUser', isAdmin);
+  setDisplay('settingItemData', isAdmin);
   
   // Existing access control
-  document.getElementById('thAksi').style.display = (isAdmin || isGudang) ? '' : 'none';
+  var thAksi = document.getElementById('thAksi');
+  if (thAksi) thAksi.style.display = (isAdmin || isGudang) ? '' : 'none';
   
   var bb = document.querySelector('button[onclick="bayarDanCetak()"]'); 
   if (bb) bb.style.display = (isAdmin || isKasir) ? '' : 'none';
@@ -124,18 +335,35 @@ function aturHakAkses() {
   var es = document.querySelector('#page-laporan div[style*="margin-top:12px"]'); 
   if (es) es.style.display = isAdmin ? '' : 'none';
   
-  if (activeTab === 'inventory') refreshProductList(); 
-  if (activeTab === 'laporan') muatLaporan();
+  if (typeof activeTab !== 'undefined' && activeTab === 'inventory' && typeof refreshProductList === 'function') refreshProductList(); 
+  if (typeof activeTab !== 'undefined' && activeTab === 'laporan' && typeof muatLaporan === 'function') muatLaporan();
 }
-async function pilihFolder() { try { var d = await window.showDirectoryPicker(); workingDirHandle = d; document.getElementById('folderPath').textContent = d.name; alert('Folder dipilih!'); } catch (e) { if (e.name !== 'AbortError') alert('Gagal memilih folder'); } }
 
-// ===================== BACKUP DATA (ENHANCED) =====================
+async function pilihFolder() { 
+  try { 
+    if (typeof window.showDirectoryPicker === 'function') {
+      var d = await window.showDirectoryPicker(); 
+      workingDirHandle = d; 
+      var pathEl = document.getElementById('folderPath');
+      if (pathEl) pathEl.textContent = d.name; 
+      alert('Folder dipilih!'); 
+    } else {
+      alert('Browser tidak mendukung File System Access API.\nGunakan Chrome/Edge terbaru.');
+    }
+  } catch (e) { 
+    if (e.name !== 'AbortError') alert('Gagal memilih folder'); 
+  } 
+}
+
+// ===================== BACKUP DATA =====================
 async function backupData() {
   try {
     var btn = document.getElementById('btnBackup');
-    var originalText = btn.textContent;
-    btn.textContent = '⏳ Memproses...';
-    btn.disabled = true;
+    var originalText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.textContent = '⏳ Memproses...';
+      btn.disabled = true;
+    }
 
     var zip = new JSZip();
     var tables = [
@@ -149,10 +377,14 @@ async function backupData() {
     var totalRows = 0;
     
     for (var i = 0; i < tables.length; i++) {
-      var result = await tables[i].fn;
-      if (result.data && result.data.length > 0) {
-        zip.file(tables[i].name + '.json', JSON.stringify(result.data, null, 2));
-        totalRows += result.data.length;
+      try {
+        var result = await tables[i].fn;
+        if (result.data && result.data.length > 0) {
+          zip.file(tables[i].name + '.json', JSON.stringify(result.data, null, 2));
+          totalRows += result.data.length;
+        }
+      } catch(e) {
+        console.error('Backup ' + tables[i].name + ' failed:', e);
       }
     }
 
@@ -183,27 +415,12 @@ async function backupData() {
       
       if (error) {
         console.error('Cloud upload error:', error.message);
-      } else {
-        console.log('Cloud backup uploaded: ' + filename);
       }
     } catch(e) {
       console.error('Cloud backup failed:', e.message);
     }
 
-    // Log backup
-    try {
-      await supabaseClient.from('backup_log').insert({
-        backup_type: 'manual',
-        file_name: filename,
-        file_size: blob.size,
-        rows_backed_up: totalRows,
-        status: 'success'
-      });
-    } catch(e) {
-      console.error('Backup log failed:', e.message);
-    }
-
-    alert('✅ Backup berhasil!\n\n📁 File: ' + filename + '\n📊 Total data: ' + totalRows + ' rows\n💾 Size: ' + (blob.size / 1024).toFixed(1) + ' KB\n\n☁️ Cloud backup: ' + 'Attempted');
+    alert('✅ Backup berhasil!\n\n📁 File: ' + filename + '\n📊 Total data: ' + totalRows + ' rows\n💾 Size: ' + (blob.size / 1024).toFixed(1) + ' KB');
 
   } catch (e) {
     alert('❌ Gagal backup: ' + e.message);
@@ -289,7 +506,7 @@ function resetDatabase() {
   if (confirm('⚠️ Reset semua data? Tindakan ini TIDAK BISA DIBATALKAN!\n\nKetik "RESET" untuk melanjutkan.')) {
     var confirmInput = prompt('Ketik "RESET" untuk mengkonfirmasi:');
     if (confirmInput === 'RESET') {
-      alert('Fitur reset harus dilakukan melalui dashboard Supabase.\n\nBuka: https://boztryhbosenjdgiszkv.supabase.co');
+      alert('Fitur reset harus dilakukan melalui dashboard Supabase.\n\nBuka: https://supabase.com/dashboard');
     }
   }
 }
@@ -303,11 +520,9 @@ function toggleSubMenu(menu) {
     if (subMenu.style.display === 'none' || subMenu.style.display === '') {
       subMenu.style.display = 'block';
       arrow.textContent = '▲';
-      arrow.style.transform = 'rotate(0deg)';
     } else {
       subMenu.style.display = 'none';
       arrow.textContent = '▼';
-      arrow.style.transform = 'rotate(0deg)';
     }
   }
 }
@@ -315,10 +530,21 @@ function toggleSubMenu(menu) {
 function updateVoucherButtonVisibility() {
   var voucherBtn = document.getElementById('btnVoucherTransaksi');
   if (voucherBtn) {
-    // Check if voucher feature is active
-    var isVoucherActive = activeFeatures && activeFeatures.voucher;
-    
-    // Show button only if voucher feature is active
+    var isVoucherActive = typeof activeFeatures !== 'undefined' && activeFeatures && activeFeatures.voucher;
     voucherBtn.style.display = isVoucherActive ? 'inline-flex' : 'none';
   }
+}
+
+// ===================== HITUNG JUMLAH CETAK LABEL =====================
+function hitungJumlahCetak() { 
+  var qtyInput = document.getElementById('labelQty');
+  var colsInput = document.getElementById('labelCols');
+  var printCountInput = document.getElementById('labelPrintCount');
+  
+  if (!qtyInput || !colsInput || !printCountInput) return;
+  
+  var q = parseInt(qtyInput.value) || 0;
+  var c = parseInt(colsInput.value) || 2;
+  
+  printCountInput.value = (q > 0 && c > 0) ? Math.ceil(q / c) : 0; 
 }
