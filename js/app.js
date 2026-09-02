@@ -1,4 +1,30 @@
-// ===================== APP.JS - FIXED VERSION =====================
+// ===================== APP.JS - FIXED v2 =====================
+
+// FIX: Pastikan login overlay berada di body level
+document.addEventListener('DOMContentLoaded', function() {
+  var loginOverlay = document.getElementById('loginOverlay');
+  if (loginOverlay && loginOverlay.parentElement !== document.body) {
+    document.body.appendChild(loginOverlay);
+    console.log('Login overlay dipindahkan ke body (auto-fix)');
+  }
+  
+  // FIX: Pastikan semua modal juga di body level
+  var modals = document.querySelectorAll('.overlay, .setting-modal');
+  modals.forEach(function(modal) {
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  });
+  
+  // FIX: Pindahkan semua modal penting ke body
+  var modalIds = ['editUserModal', 'productDetailModal', 'pesananModal', 'labelPrintModal'];
+  modalIds.forEach(function(id) {
+    var modal = document.getElementById(id);
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  });
+});
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -25,10 +51,9 @@ document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.add('active');
     activeTab = b.dataset.page;
     
-    // FIXED: Handle each tab with proper checks
     if (activeTab === 'laporan') { 
-      setDefaultDateFilter(); 
-      muatLaporan(); 
+      if (typeof setDefaultDateFilter === 'function') setDefaultDateFilter(); 
+      if (typeof muatLaporan === 'function') muatLaporan(); 
     }
     if (activeTab === 'setting') { 
       if (typeof muatProfilToko === 'function') muatProfilToko(); 
@@ -68,17 +93,30 @@ document.querySelectorAll('.tab-btn').forEach(b => {
 });
 
 function initApp() {
+  // FIX: Pindahkan login overlay ke body sebelum checkSession
+  var loginOverlay = document.getElementById('loginOverlay');
+  if (loginOverlay && loginOverlay.parentElement !== document.body) {
+    document.body.appendChild(loginOverlay);
+  }
+  
+  // Pindahkan modal penting ke body
+  var modalIds = ['editUserModal', 'productDetailModal', 'pesananModal', 'labelPrintModal'];
+  modalIds.forEach(function(id) {
+    var modal = document.getElementById(id);
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  });
+  
   checkSession();
 }
 
-// FIXED: Wait for DOM ready before init
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
   initApp();
 }
 
-// ===================== BACK BUTTON PREVENTION =====================
 let backCount = 0;
 let backTimer = null;
 
@@ -107,7 +145,6 @@ document.addEventListener('visibilitychange', function() {
   if (document.hidden) { backCount = 0; clearTimeout(backTimer); }
 });
 
-// ===================== ERROR HANDLING =====================
 window.addEventListener('error', function(e) {
   console.error('Global error:', e.message, e.filename, e.lineno);
 });
