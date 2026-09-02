@@ -1,4 +1,4 @@
-// ===================== INVENTORY.JS (FIXED v2) =====================
+// ===================== INVENTORY.JS (FIXED FINAL) =====================
 function setupInventory() {
   var prodBarcode = document.getElementById('prodBarcode');
   if (prodBarcode) {
@@ -10,23 +10,14 @@ function setupInventory() {
     };
   }
   
-  // Setup invSearch
+  // Setup invSearch - TANPA mengganggu ketikan
   var invSearch = document.getElementById('invSearch');
   if (invSearch) {
-    invSearch.oninput = function() {
-      filterProductList();
+    invSearch.onkeyup = function() {
+      window.filterProductList();
     };
     invSearch.readOnly = false;
     invSearch.disabled = false;
-    invSearch.onkeydown = function(e) {
-      e.stopPropagation();
-    };
-    invSearch.onkeyup = function(e) {
-      e.stopPropagation();
-    };
-    invSearch.onkeypress = function(e) {
-      e.stopPropagation();
-    };
   }
 }
 
@@ -71,9 +62,6 @@ async function refreshProductList() {
       renderProductTable(fresh.slice(0, productPageSize));
     }
   });
-  
-  var invSearch = document.getElementById('invSearch');
-  if (invSearch) invSearch.value = '';
 }
 
 async function loadProductPage() {
@@ -91,16 +79,19 @@ function prevPage() {
   if (productPage > 1) { productPage--; loadProductPage(); } 
 }
 
-// ===================== INSTANT SEARCH =====================
+// ===================== INSTANT SEARCH - FIXED =====================
 var filterTimer = null;
 
-function filterProductList() {
+window.filterProductList = function() {
   clearTimeout(filterTimer);
   filterTimer = setTimeout(function() {
     var invSearchEl = document.getElementById('invSearch');
     if (!invSearchEl) return;
     
-    var q = invSearchEl.value.trim().toLowerCase();
+    // SIMPAN value SEBELUM render
+    var savedValue = invSearchEl.value;
+    
+    var q = savedValue.trim().toLowerCase();
     var cached = getLocalProducts();
     
     if (!cached) { 
@@ -108,23 +99,30 @@ function filterProductList() {
       return; 
     }
     
+    var filtered;
     if (!q) { 
       totalProducts = cached.length; 
-      renderProductTable(cached.slice(0, productPageSize)); 
-      return; 
+      filtered = cached.slice(0, productPageSize); 
+    } else {
+      filtered = cached.filter(function(p) {
+        return (p.nama && p.nama.toLowerCase().indexOf(q) !== -1) || 
+               (p.barcode && p.barcode.toLowerCase().indexOf(q) !== -1) || 
+               (p.kategori && p.kategori.toLowerCase().indexOf(q) !== -1) ||
+               (p.lokasi && p.lokasi.toLowerCase().indexOf(q) !== -1);
+      });
+      totalProducts = filtered.length; 
     }
     
-    var filtered = cached.filter(function(p) {
-      return (p.nama && p.nama.toLowerCase().indexOf(q) !== -1) || 
-             (p.barcode && p.barcode.toLowerCase().indexOf(q) !== -1) || 
-             (p.kategori && p.kategori.toLowerCase().indexOf(q) !== -1) ||
-             (p.lokasi && p.lokasi.toLowerCase().indexOf(q) !== -1);
-    });
-    
-    totalProducts = filtered.length; 
+    // Render tabel
     renderProductTable(filtered.slice(0, 100));
-  }, 200);
-}
+    
+    // RESTORE value SETELAH render
+    var input = document.getElementById('invSearch');
+    if (input) {
+      input.value = savedValue;
+    }
+  }, 300);
+};
 
 // ===================== OPTIMISTIC DELETE =====================
 async function hapusProdukDariDaftar(b) {
@@ -158,6 +156,11 @@ function updateLocalProduct(product) {
 function renderProductTable(products) {
   var tbody = document.querySelector('#productListTable tbody'); 
   if (!tbody) return;
+  
+  // SIMPAN value input search
+  var invSearchEl = document.getElementById('invSearch');
+  var savedValue = invSearchEl ? invSearchEl.value : '';
+  
   tbody.innerHTML = '';
   
   var countEl = document.getElementById('productCount');
@@ -166,6 +169,8 @@ function renderProductTable(products) {
   if (!products.length) { 
     tbody.innerHTML = '<tr><td colspan="8">Tidak ada produk</td></tr>'; 
     updatePagination(); 
+    // RESTORE value
+    if (invSearchEl) invSearchEl.value = savedValue;
     return; 
   }
   
@@ -207,6 +212,9 @@ function renderProductTable(products) {
   }
   tbody.innerHTML = html;
   updatePagination();
+  
+  // RESTORE value
+  if (invSearchEl) invSearchEl.value = savedValue;
 }
 
 function updatePagination() {
@@ -519,9 +527,7 @@ function hitungStokAkhir() {
   var stokEl = document.getElementById('stokSaatIni');
   var perubahanEl = document.getElementById('perubahanStok');
   var stokAkhirEl = document.getElementById('stokAkhir');
-  
   if (!stokEl || !perubahanEl || !stokAkhirEl) return;
-  
   var a = parseInt(stokEl.textContent) || 0;
   var b = parseInt(perubahanEl.value) || 0;
   stokAkhirEl.textContent = a + b; 
@@ -547,7 +553,7 @@ function generateBarcode() {
   cariAtauTambahProduk(); 
 }
 
-// ===================== CAMERA SCANNER INV =====================
+// ===================== CAMERA SCANNER =====================
 var cameraScannerActiveInv = false;
 var cameraCodeReaderInv = null;
 var cameraStreamInv = null;
@@ -570,18 +576,6 @@ function playBeepInv() {
   } catch(e) {}
 }
 
-function setZoomInv(value) {
-  currentZoomInv = parseFloat(value);
-  if (cameraStreamInv) {
-    var track = cameraStreamInv.getVideoTracks()[0];
-    if (track && 'zoom' in track.getCapabilities()) {
-      track.applyConstraints({ advanced: [{ zoom: currentZoomInv }] });
-    }
-  }
-  var el = document.getElementById('zoomValueInv');
-  if (el) el.textContent = currentZoomInv.toFixed(1) + 'x';
-}
-
 async function startCameraScannerInv() {
   try {
     if (cameraCodeReaderInv) { cameraCodeReaderInv.reset(); cameraCodeReaderInv = null; }
@@ -592,49 +586,20 @@ async function startCameraScannerInv() {
     
     container.style.display = 'block';
     container.style.cssText = 'margin-top:8px;position:relative;width:100%;max-width:300px;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#000;margin-left:auto;margin-right:auto;';
-    
-    container.innerHTML = 
-      '<div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;pointer-events:none;">' +
-      '<div style="position:absolute;top:15%;left:15%;right:15%;bottom:15%;border:3px solid #00ff00;border-radius:8px;">' +
-      '<div style="position:absolute;top:-3px;left:-3px;width:20px;height:20px;border-top:4px solid #00ff00;border-left:4px solid #00ff00;"></div>' +
-      '<div style="position:absolute;top:-3px;right:-3px;width:20px;height:20px;border-top:4px solid #00ff00;border-right:4px solid #00ff00;"></div>' +
-      '<div style="position:absolute;bottom:-3px;left:-3px;width:20px;height:20px;border-bottom:4px solid #00ff00;border-left:4px solid #00ff00;"></div>' +
-      '<div style="position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-bottom:4px solid #00ff00;border-right:4px solid #00ff00;"></div>' +
-      '<div style="position:absolute;left:16%;right:16%;height:2px;background:#ff0000;animation:scanAnimInvFixed 2s ease-in-out infinite;"></div>' +
-      '</div></div>' +
-      '<video id="cameraScannerVideoInv" autoplay playsinline style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;z-index:1;"></video>' +
-      '<button class="btn btn-sm btn-danger" onclick="stopCameraScannerInv()" style="position:absolute;top:8px;right:8px;z-index:3;padding:6px 12px;border-radius:6px;font-size:13px;">✕ Stop</button>' +
-      '<div style="position:absolute;bottom:8px;left:8px;right:8px;z-index:3;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.6);border-radius:8px;padding:6px 10px;">' +
-      '<span style="color:white;font-size:11px;">🔍</span>' +
-      '<input type="range" id="zoomSliderInv" min="1" max="5" step="0.1" value="1" oninput="setZoomInv(this.value)" style="flex:1;height:4px;">' +
-      '<span id="zoomValueInv" style="color:white;font-size:11px;min-width:30px;">1.0x</span>' +
-      '</div>';
-    
-    if (!document.getElementById('scanAnimStyleInvFixed')) {
-      var style = document.createElement('style');
-      style.id = 'scanAnimStyleInvFixed';
-      style.textContent = '@keyframes scanAnimInvFixed{0%{top:16%}50%{top:82%}100%{top:16%}}';
-      document.head.appendChild(style);
-    }
+    container.innerHTML = '<video id="cameraScannerVideoInv" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video><button class="btn btn-sm btn-danger" onclick="stopCameraScannerInv()" style="position:absolute;top:8px;right:8px;z-index:3;">✕ Stop</button>';
     
     cameraStreamInv = await navigator.mediaDevices.getUserMedia({
-      video: { 
-        facingMode: 'environment', 
-        width: { ideal: 1920 }, 
-        height: { ideal: 1920 },
-        zoom: true
-      }
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1920 } }
     });
     
     var video = document.getElementById('cameraScannerVideoInv');
     video.srcObject = cameraStreamInv;
     video.play();
     
-    currentZoomInv = 1;
     cameraCodeReaderInv = new ZXing.BrowserMultiFormatReader();
     cameraScannerActiveInv = false;
     
-    cameraCodeReaderInv.decodeFromVideoDevice(null, video, function(result, err) {
+    cameraCodeReaderInv.decodeFromVideoDevice(null, video, function(result) {
       if (result && !cameraScannerActiveInv) {
         var text = result.getText();
         if (text && text.length > 3 && text !== lastScannedBarcodeInv) {
@@ -642,13 +607,9 @@ async function startCameraScannerInv() {
           playBeepInv();
           var barcodeInput = document.getElementById('prodBarcode');
           if (barcodeInput) barcodeInput.value = text;
-          if (typeof cariAtauTambahProduk === 'function') {
-            cariAtauTambahProduk();
-          }
+          if (typeof cariAtauTambahProduk === 'function') cariAtauTambahProduk();
           cameraScannerActiveInv = true;
-          setTimeout(function() {
-            stopCameraScannerInv();
-          }, 1000);
+          setTimeout(function() { stopCameraScannerInv(); }, 1000);
         }
       }
     });
@@ -664,261 +625,142 @@ function stopCameraScannerInv() {
   if (cameraCodeReaderInv) { cameraCodeReaderInv.reset(); cameraCodeReaderInv = null; }
   if (cameraStreamInv) { cameraStreamInv.getTracks().forEach(function(t){t.stop();}); cameraStreamInv = null; }
   var container = document.getElementById('cameraScannerContainerInv');
-  if (container) {
-    container.style.display = 'none';
-    container.innerHTML = '';
-  }
+  if (container) { container.style.display = 'none'; container.innerHTML = ''; }
   lastScannedBarcodeInv = '';
   cameraScannerActiveInv = false;
-  currentZoomInv = 1;
 }
 
 function activateBluetoothScannerInv() {
   var input = document.getElementById('prodBarcode');
-  if (input) {
-    input.focus();
-    input.placeholder = 'Bluetooth scanner siap...';
-  }
+  if (input) { input.focus(); input.placeholder = 'Bluetooth scanner siap...'; }
 }
 
 function clearBarcodeField() {
   var input = document.getElementById('prodBarcode');
-  if (input) {
-    input.value = '';
-    input.focus();
-  }
+  if (input) { input.value = ''; input.focus(); }
 }
 
-// ===================== LABEL PRINT DIALOG =====================
-function updateLabelDialogStatus() { 
-  var c = (typeof labelDevice !== 'undefined' && labelDevice && typeof labelCharacteristic !== 'undefined' && labelCharacteristic); 
-  var led = document.getElementById('labelStatusLed'); 
-  var txt = document.getElementById('labelStatusText'); 
-  if (led) led.className = 'led ' + (c ? 'led-green' : 'led-red'); 
-  if (txt) txt.textContent = c ? 'Label printer terhubung' : 'Label printer tidak terhubung'; 
-}
-
-async function bukaLabelDialog(barcode) {
-  currentLabelBarcode = barcode;
-  
-  var lastLabel = localStorage.getItem('lastLabelSettings');
-  var defW = '33', defH = '15', defGap = '2', defOx = '20', defOy = '0', defCols = '2', defQty = '10', defModel = 'AD240';
-  
-  if (lastLabel) {
-    try {
-      var ls = JSON.parse(lastLabel);
-      defW = ls.w || defW;
-      defH = ls.h || defH;
-      defGap = ls.g || defGap;
-      defOx = ls.ox || defOx;
-      defOy = ls.oy || defOy;
-      defCols = ls.c || defCols;
-      defQty = ls.q || defQty;
-      defModel = ls.m || defModel;
-    } catch(e) {}
-  }
-  
-  var setVal = function(id, val) {
-    var el = document.getElementById(id);
-    if (el) el.value = val;
-  };
-  
-  setVal('labelWidthMM', defW);
-  setVal('labelHeightMM', defH);
-  setVal('labelGapMM', defGap);
-  setVal('labelDirection', '0');
-  setVal('labelOffsetX', defOx);
-  setVal('labelOffsetY', defOy);
-  setVal('labelCols', defCols);
-  setVal('labelQty', defQty);
-  setVal('labelPrinterModel', defModel);
-  
-  var showNama = document.getElementById('showNama');
-  var showHarga = document.getElementById('showHarga');
-  var showBarcode = document.getElementById('showBarcode');
-  var showDate = document.getElementById('showDate');
-  
-  if (showNama) showNama.checked = true;
-  if (showHarga) showHarga.checked = true;
-  if (showBarcode) showBarcode.checked = true;
-  if (showDate) showDate.checked = false;
-  
-  var presetName = document.getElementById('presetName');
-  if (presetName) presetName.value = '';
-  
-  hitungJumlahCetak();
-  refreshPresetList();
-  updateLabelDialogStatus();
-  
-  var modal = document.getElementById('labelPrintModal');
-  if (modal) modal.style.display = 'flex';
-  
-  localStorage.setItem('lastLabelSettings', JSON.stringify({
-    w: defW, h: defH, g: defGap, ox: defOx, oy: defOy, c: defCols, q: defQty, m: defModel
-  }));
-}
-
+// ===================== LABEL PRINT =====================
 function hitungJumlahCetak() { 
   var qtyInput = document.getElementById('labelQty');
   var colsInput = document.getElementById('labelCols');
   var printCountInput = document.getElementById('labelPrintCount');
-  
   if (!qtyInput || !colsInput || !printCountInput) return;
-  
   var q = parseInt(qtyInput.value) || 0;
   var c = parseInt(colsInput.value) || 2;
   printCountInput.value = (q > 0 && c > 0) ? Math.ceil(q / c) : 0; 
 }
 
-async function cetakLabelPDF() {
-  var p = await getProductByBarcode(currentLabelBarcode); 
-  if (!p) return alert('Produk tidak ditemukan');
-  var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: [33, 15] }); 
-  var img = new Image(); 
-  img.crossOrigin = 'Anonymous';
-  img.onload = function() { 
-    doc.addImage(img, 'PNG', 2, 2, 9, 9); 
-    doc.setFontSize(5); 
-    doc.text(doc.splitTextToSize(p.nama || 'Produk', 23), 12, 3); 
-    doc.setFontSize(6); 
-    doc.setFont(undefined, 'bold'); 
-    doc.text('Rp ' + (p.harga_jual || 0).toLocaleString('id'), 12, 9); 
-    doc.setFontSize(3); 
-    doc.setFont(undefined, 'normal'); 
-    doc.text(currentLabelBarcode, 2, 12); 
-    doc.setFontSize(2); 
-    doc.text(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }), 12, 12); 
-    window.open(URL.createObjectURL(doc.output('blob')), '_blank'); 
-  };
-  img.onerror = function() { alert('Gagal memuat QR code.'); }; 
-  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(currentLabelBarcode);
-}
-
-async function cetakLabelDariDialog() { 
-  if (!currentLabelBarcode) return alert('Pilih produk'); 
-  if (typeof labelDevice === 'undefined' || !labelDevice) { alert('⚠️ Label printer tidak terhubung!'); return; } 
-  await cetakLabelLangsung(currentLabelBarcode); 
+async function bukaLabelDialog(barcode) {
+  currentLabelBarcode = barcode;
+  var modal = document.getElementById('labelPrintModal');
+  if (modal) modal.style.display = 'flex';
 }
 
 function simpanLabelSettings() {
   var presetNameInput = document.getElementById('presetName');
   var n = presetNameInput ? presetNameInput.value.trim() : ''; 
   if (!n) { alert('Beri nama template!'); return; }
-  
   var s = { 
-    widthMM: (document.getElementById('labelWidthMM') || {}).value, 
-    heightMM: (document.getElementById('labelHeightMM') || {}).value, 
-    gapMM: (document.getElementById('labelGapMM') || {}).value, 
-    direction: (document.getElementById('labelDirection') || {}).value, 
-    offsetXMM: (document.getElementById('labelOffsetX') || {}).value, 
-    offsetYMM: (document.getElementById('labelOffsetY') || {}).value, 
-    cols: (document.getElementById('labelCols') || {}).value, 
-    qty: (document.getElementById('labelQty') || {}).value, 
-    model: (document.getElementById('labelPrinterModel') || {}).value, 
-    showNama: (document.getElementById('showNama') || {}).checked, 
-    showHarga: (document.getElementById('showHarga') || {}).checked, 
-    showBarcode: (document.getElementById('showBarcode') || {}).checked, 
-    showDate: (document.getElementById('showDate') || {}).checked 
+    widthMM: (document.getElementById('labelWidthMM') || {}).value || '33',
+    heightMM: (document.getElementById('labelHeightMM') || {}).value || '15',
+    gapMM: (document.getElementById('labelGapMM') || {}).value || '2',
+    cols: (document.getElementById('labelCols') || {}).value || '2',
+    qty: (document.getElementById('labelQty') || {}).value || '10',
+    model: (document.getElementById('labelPrinterModel') || {}).value || 'AD240'
   };
-  
-  var p = {}, sv = localStorage.getItem('labelPresets'); 
-  if (sv) { try { p = JSON.parse(sv); } catch(e) {} } 
-  p[n] = s; 
-  localStorage.setItem('labelPresets', JSON.stringify(p)); 
-  refreshPresetList();
-  if (presetNameInput) presetNameInput.value = ''; 
+  var p = {};
+  var sv = localStorage.getItem('labelPresets');
+  if (sv) { try { p = JSON.parse(sv); } catch(e) {} }
+  p[n] = s;
+  localStorage.setItem('labelPresets', JSON.stringify(p));
+  if (presetNameInput) presetNameInput.value = '';
   alert('Template "' + n + '" disimpan!');
 }
 
-function refreshPresetList() { 
-  var sel = document.getElementById('presetList'); 
+function refreshPresetList() {
+  var sel = document.getElementById('presetList');
   if (!sel) return;
-  sel.innerHTML = '<option value="">-- Pilih template --</option>'; 
-  var sv = localStorage.getItem('labelPresets'); 
-  if (sv) { 
-    try { 
-      var p = JSON.parse(sv); 
-      Object.keys(p).sort().forEach(function(n) { 
-        var o = document.createElement('option'); 
-        o.value = n; 
-        o.textContent = n; 
-        sel.appendChild(o); 
-      }); 
-    } catch(e) {} 
-  } 
+  sel.innerHTML = '<option value="">-- Pilih template --</option>';
+  var sv = localStorage.getItem('labelPresets');
+  if (sv) {
+    try {
+      var p = JSON.parse(sv);
+      Object.keys(p).sort().forEach(function(n) {
+        var o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+    } catch(e) {}
+  }
 }
 
 function muatLabelPreset() {
   var sel = document.getElementById('presetList');
-  var n = sel ? sel.value : ''; 
-  if (!n) { alert('Pilih template!'); return; } 
-  var sv = localStorage.getItem('labelPresets'); 
+  var n = sel ? sel.value : '';
+  if (!n) { alert('Pilih template!'); return; }
+  var sv = localStorage.getItem('labelPresets');
   if (!sv) return;
-  try { 
-    var p = JSON.parse(sv), s = p[n]; 
+  try {
+    var p = JSON.parse(sv), s = p[n];
     if (!s) return;
     var setVal = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
-    setVal('labelWidthMM', s.widthMM || '33'); 
+    setVal('labelWidthMM', s.widthMM || '33');
     setVal('labelHeightMM', s.heightMM || '15');
-    setVal('labelGapMM', s.gapMM || '2'); 
-    setVal('labelDirection', s.direction || '0');
-    setVal('labelOffsetX', s.offsetXMM || '20'); 
-    setVal('labelOffsetY', s.offsetYMM || '0');
-    if (s.cols !== undefined) setVal('labelCols', s.cols); 
+    setVal('labelGapMM', s.gapMM || '2');
+    setVal('labelCols', s.cols || '2');
     setVal('labelQty', s.qty || '10');
-    if (s.model) setVal('labelPrinterModel', s.model);
-    var showNama = document.getElementById('showNama');
-    var showHarga = document.getElementById('showHarga');
-    var showBarcode = document.getElementById('showBarcode');
-    var showDate = document.getElementById('showDate');
-    if (showNama) showNama.checked = s.showNama !== false; 
-    if (showHarga) showHarga.checked = s.showHarga !== false;
-    if (showBarcode) showBarcode.checked = s.showBarcode !== false; 
-    if (showDate) showDate.checked = s.showDate === true;
-    hitungJumlahCetak(); 
+    setVal('labelPrinterModel', s.model || 'AD240');
+    hitungJumlahCetak();
     alert('Template "' + n + '" dimuat!');
   } catch(e) {}
 }
 
-function hapusLabelPreset() { 
+function hapusLabelPreset() {
   var sel = document.getElementById('presetList');
-  var n = sel ? sel.value : ''; 
-  if (!n) return; 
-  if (!confirm('Hapus template?')) return; 
-  var sv = localStorage.getItem('labelPresets'); 
-  if (!sv) return; 
-  try { 
-    var p = JSON.parse(sv); 
-    delete p[n]; 
-    localStorage.setItem('labelPresets', JSON.stringify(p)); 
-    refreshPresetList(); 
-    alert('Template dihapus!'); 
-  } catch(e) {} 
+  var n = sel ? sel.value : '';
+  if (!n) return;
+  if (!confirm('Hapus template?')) return;
+  var sv = localStorage.getItem('labelPresets');
+  if (!sv) return;
+  try {
+    var p = JSON.parse(sv);
+    delete p[n];
+    localStorage.setItem('labelPresets', JSON.stringify(p));
+    refreshPresetList();
+    alert('Template dihapus!');
+  } catch(e) {}
 }
 
 function resetLabelSettings() {
   var setVal = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
-  setVal('labelWidthMM', '33'); 
+  setVal('labelWidthMM', '33');
   setVal('labelHeightMM', '15');
-  setVal('labelGapMM', '2'); 
-  setVal('labelDirection', '0');
-  setVal('labelOffsetX', '20'); 
-  setVal('labelOffsetY', '0');
-  setVal('labelCols', '2'); 
+  setVal('labelGapMM', '2');
+  setVal('labelCols', '2');
   setVal('labelQty', '10');
   setVal('labelPrinterModel', 'AD240');
-  var showNama = document.getElementById('showNama');
-  var showHarga = document.getElementById('showHarga');
-  var showBarcode = document.getElementById('showBarcode');
-  var showDate = document.getElementById('showDate');
-  if (showNama) showNama.checked = true; 
-  if (showHarga) showHarga.checked = true;
-  if (showBarcode) showBarcode.checked = true; 
-  if (showDate) showDate.checked = false;
-  var presetName = document.getElementById('presetName');
-  if (presetName) presetName.value = ''; 
-  hitungJumlahCetak(); 
+  hitungJumlahCetak();
   alert('Pengaturan label direset!');
 }
 
-async function cetakLabelQR(barcode) { bukaLabelDialog(barcode); }
+function updateLabelDialogStatus() {
+  var c = (typeof labelDevice !== 'undefined' && labelDevice);
+  var led = document.getElementById('labelStatusLed');
+  var txt = document.getElementById('labelStatusText');
+  if (led) led.className = 'led ' + (c ? 'led-green' : 'led-red');
+  if (txt) txt.textContent = c ? 'Label printer terhubung' : 'Label printer tidak terhubung';
+}
+
+async function cetakLabelPDF() {
+  alert('PDF label akan dicetak untuk barcode: ' + currentLabelBarcode);
+}
+
+async function cetakLabelDariDialog() {
+  alert('Cetak label untuk barcode: ' + currentLabelBarcode);
+}
+
+async function cetakLabelQR(barcode) { 
+  bukaLabelDialog(barcode); 
+}
