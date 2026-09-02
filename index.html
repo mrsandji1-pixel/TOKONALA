@@ -111,9 +111,10 @@
     </div>
     <hr>
     <h3>Daftar Produk (<span id="productCount">0</span>)</h3>
-    <input type="text" id="invSearch" placeholder="Cari..." oninput="filterProductList()"><button class="btn btn-sm" onclick="refreshProductList()">🔄 Refresh</button>
-    <div class="table-wrapper"><table class="product-table" id="productListTable"><thead><tr><th>Barcode</th><th>Nama</th><th>Kategori</th><th>Keterangan</th><th>Lokasi</th><th>Harga Jual</th><th>Stok</th><th id="thAksi">Aksi</th></tr></thead><tbody></tbody></table></div>
-  </div>
+<div style="display:flex; gap:8px; margin-bottom:8px;">
+  <input type="text" id="invSearch" placeholder="Cari produk..." autocomplete="off" style="flex:1; padding:10px 14px; font-size:14px; border:1.5px solid #e0e4e8; border-radius:8px;">
+  <button class="btn btn-sm" onclick="refreshProductList()" style="white-space:nowrap;">🔄 Refresh</button>
+</div>
 
   <!-- ================== LAPORAN ================== -->
   <div id="page-laporan" class="page">
