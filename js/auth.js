@@ -1,4 +1,4 @@
-// ===================== AUTH.JS =====================
+// ===================== AUTH.JS - FIXED VERSION =====================
 
 var SALT_PREFIX = 'RDNPS_';
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -55,19 +55,6 @@ function isAccountLocked() {
   return { locked: false, remainingMinutes: 0 };
 }
 
-// ===================== HIDE LOGIN OVERLAY =====================
-function hideLoginOverlay() {
-  var loginOverlay = document.getElementById('loginOverlay');
-  if (loginOverlay) {
-    loginOverlay.style.display = 'none';
-    loginOverlay.style.visibility = 'hidden';
-    loginOverlay.style.opacity = '0';
-    loginOverlay.style.pointerEvents = 'none';
-    loginOverlay.style.zIndex = '-1';
-  }
-}
-
-// ===================== LOGIN =====================
 async function login() {
   var u = document.getElementById('loginUser').value.trim();
   var p = document.getElementById('loginPass').value;
@@ -110,9 +97,7 @@ async function login() {
     saveSession();
     updateActiveUserDisplay();
     
-    // ===== FIX: Hide login overlay =====
-    hideLoginOverlay();
-    
+    document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('loginUser').value = '';
     document.getElementById('loginPass').value = '';
     
@@ -139,14 +124,11 @@ async function login() {
       initOfflineMode();
     }
 
+    // FIXED: Use startSessionTracking from auth.js instead of _startSession from index.html
     startSessionTracking();
-    
-    // Fix inputs after login
-    if (typeof fixInputsAfterLogin === 'function') {
-      fixInputsAfterLogin();
-    }
 
   } catch(err) {
+    console.error('Login error:', err);
     errorEl.textContent = 'Error koneksi. Coba lagi.';
   }
 }
@@ -180,7 +162,7 @@ function checkSession() {
     currentUser = session;
     updateActiveUserDisplay();
     clearAllCaches();
-    hideLoginOverlay(); // FIX: Hide login overlay
+    document.getElementById('loginOverlay').style.display = 'none';
     applyRoleRestrictions();
     muatProfilToko();
     tampilkanUserList();
@@ -204,22 +186,10 @@ function checkSession() {
     }
 
     startSessionTracking();
-    
-    if (typeof fixInputsAfterLogin === 'function') {
-      fixInputsAfterLogin();
-    }
 
     return true;
   }
-  // Show login overlay
-  var login = document.getElementById('loginOverlay');
-  if (login) {
-    login.style.display = 'flex';
-    login.style.visibility = 'visible';
-    login.style.opacity = '1';
-    login.style.pointerEvents = 'auto';
-    login.style.zIndex = '99999';
-  }
+  document.getElementById('loginOverlay').style.display = 'flex';
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
   return false;
@@ -260,17 +230,10 @@ function logout() {
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
   var tt=document.querySelector('.tab-btn[data-page="transaksi"]');if(tt)tt.classList.add('active');
   activeTab='transaksi';
-  var login = document.getElementById('loginOverlay');
-  if (login) {
-    login.style.display = 'flex';
-    login.style.visibility = 'visible';
-    login.style.opacity = '1';
-    login.style.pointerEvents = 'auto';
-    login.style.zIndex = '99999';
-  }
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginOverlay').style.display='flex';
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginError').textContent='';
 }
 
 function clearAllCaches() {
@@ -318,8 +281,26 @@ function applyRoleRestrictions() {
   var role=currentUser?currentUser.role:'';
   var tT=document.querySelector('.tab-btn[data-page="transaksi"]'),tI=document.querySelector('.tab-btn[data-page="inventory"]'),tL=document.querySelector('.tab-btn[data-page="laporan"]'),tS=document.querySelector('.tab-btn[data-page="setting"]');
   if(tT)tT.style.display='';if(tI)tI.style.display='';if(tL)tL.style.display='';if(tS)tS.style.display='';
-  if(role==='gudang'){if(tT)tT.style.display='none';if(tL)tL.style.display='none';if(tS)tS.style.display='none';document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});if(tI)tI.classList.add('active');var iP=document.getElementById('page-inventory');if(iP)iP.classList.add('active');activeTab='inventory';}
-  else if(role==='staff'){if(tI)tI.style.display='none';if(tL)tL.style.display='none';if(tS)tS.style.display='none';document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});if(tT)tT.classList.add('active');var tP=document.getElementById('page-transaksi');if(tP)tP.classList.add('active');activeTab='transaksi';}
+  if(role==='gudang'){
+    if(tT)tT.style.display='none';
+    if(tL)tL.style.display='none';
+    if(tS)tS.style.display='none';
+    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    if(tI)tI.classList.add('active');
+    var iP=document.getElementById('page-inventory');if(iP)iP.classList.add('active');
+    activeTab='inventory';
+  }
+  else if(role==='staff'){
+    if(tI)tI.style.display='none';
+    if(tL)tL.style.display='none';
+    if(tS)tS.style.display='none';
+    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    if(tT)tT.classList.add('active');
+    var tP=document.getElementById('page-transaksi');if(tP)tP.classList.add('active');
+    activeTab='transaksi';
+  }
   
   var fiturSection = document.getElementById('fiturSection');
   if (fiturSection) {
@@ -330,7 +311,10 @@ function applyRoleRestrictions() {
 document.addEventListener('DOMContentLoaded',function(){
   var lu=document.getElementById('loginUser'),lp=document.getElementById('loginPass');
   if(lu)lu.addEventListener('input',function(){document.getElementById('loginError').textContent='';});
-  if(lp){lp.addEventListener('input',function(){document.getElementById('loginError').textContent='';});lp.addEventListener('keypress',function(e){if(e.key==='Enter')login();});}
+  if(lp){
+    lp.addEventListener('input',function(){document.getElementById('loginError').textContent='';});
+    lp.addEventListener('keypress',function(e){if(e.key==='Enter')login();});
+  }
 });
 
 // ===================== SESSION TRACKING =====================
@@ -338,6 +322,7 @@ var sessionPingInterval = null;
 
 function startSessionTracking() {
   if (!currentUser || !currentUser.username) return;
+  if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
   
   var uname = currentUser.username;
   var device = getDeviceInfo();
@@ -351,6 +336,8 @@ function startSessionTracking() {
       last_ping: now,
       is_active: true,
       login_time: now
+    }).then(function(r) {
+      console.log('Session insert:', r.error ? r.error.message : 'OK');
     });
   });
   
@@ -410,7 +397,7 @@ async function refreshSessions() {
     tbody.innerHTML = '';
     
     if (sessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada sesi aktif</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tidak ada sesi aktif</td></tr>';
       return;
     }
     
@@ -430,7 +417,6 @@ async function refreshSessions() {
         '<td>' + s.role + '</td>' +
         '<td>' + (s.device || '-') + '</td>' +
         '<td style="color:' + statusColor + ';font-weight:bold;">' + status + '</td>' +
-        '<td style="font-size:11px;">' + (diffMin < 1 ? 'Baru saja' : diffMin + ' menit lalu') + '</td>' +
         '<td><button class="btn-sm btn-danger" onclick="forceDisconnect(\'' + s.username + '\')">🔌</button></td>';
     });
     
@@ -471,29 +457,21 @@ async function disconnectAllUsers() {
   }
 }
 
-// ===================== USER MANAGEMENT =====================
+// ---- USER MANAGEMENT ----
 async function tambahUser() {
   if(!currentUser||currentUser.role!=='admin')return;
   var u=document.getElementById('newUsername').value.trim(),p=document.getElementById('newPassword').value,r=document.getElementById('newRole').value;
   if(!u||!p)return alert('Isi username dan password');
   
-  var check = await supabaseClient.from('users').select('username').eq('username', u);
-  if (check.data && check.data.length > 0) {
-    alert('Username sudah digunakan!');
-    return;
+  try {
+    await supabaseClient.from('users').upsert({username:u,password_hash:await hashPassword(p),role:r});
+    tampilkanUserList();
+    document.getElementById('newUsername').value='';
+    document.getElementById('newPassword').value='';
+    alert('✅ User ' + u + ' ditambahkan');
+  } catch(e) {
+    alert('❌ Gagal: ' + e.message);
   }
-  
-  await supabaseClient.from('users').insert({
-    username: u,
-    password_hash: await hashPassword(p),
-    role: r,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  });
-  tampilkanUserList();
-  document.getElementById('newUsername').value='';
-  document.getElementById('newPassword').value='';
-  alert('✅ User ' + u + ' berhasil ditambahkan!');
 }
 
 async function hapusUser(username) {
@@ -521,77 +499,41 @@ async function simpanEditUser() {
   var u=document.getElementById('editUsername').value;
   var p=document.getElementById('editPassword').value;
   var r=document.getElementById('editRole').value;
-  var upd = { role: r, updated_at: new Date().toISOString() };
-  if(p) upd.password_hash = await hashPassword(p);
+  var upd={role:r};
+  if(p)upd.password_hash=await hashPassword(p);
   await supabaseClient.from('users').update(upd).eq('username',u);
   document.getElementById('editUserModal').style.display='none';
   tampilkanUserList();
-  alert('✅ User ' + u + ' berhasil diupdate!');
 }
 
 async function tampilkanUserList() {
   if(!currentUser||currentUser.role!=='admin'){
     var tbody = document.getElementById('userListBody');
-    if(tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#90a4ae;">Admin only</td></tr>';
+    if (tbody) tbody.innerHTML='<tr><td colspan="3">Admin only</td></tr>';
     return;
   }
-  var r=await supabaseClient.from('users').select('*').order('username');
-  var users=r.data;
-  var tbody=document.getElementById('userListBody');
-  if(!tbody) return;
-  tbody.innerHTML='';
-  if(!users||!users.length){
-    tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:#90a4ae;">Belum ada user</td></tr>';
-    return;
+  
+  try {
+    var r=await supabaseClient.from('users').select('*');
+    var users=r.data;
+    var tbody=document.getElementById('userListBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML='';
+    if(!users||!users.length){
+      tbody.innerHTML='<tr><td colspan="3">Belum ada</td></tr>';
+      return;
+    }
+    
+    users.forEach(function(u){
+      var row=tbody.insertRow();
+      var h='<td>'+u.username+'</td><td>'+u.role+'</td><td>';
+      h+='<button class="btn-sm" onclick="editUser(\''+u.username+'\')">✏️</button>';
+      if(u.username!=='admin')h+=' <button class="btn-sm btn-danger" onclick="hapusUser(\''+u.username+'\')">🗑</button>';
+      h+='</td>';
+      row.innerHTML=h;
+    });
+  } catch(e) {
+    console.error('tampilkanUserList error:', e);
   }
-  users.forEach(function(u){
-    var row=tbody.insertRow();
-    var h='<td>'+u.username+'</td><td>'+u.role+'</td><td>';
-    h+='<button class="btn-sm" onclick="editUser(\''+u.username+'\')" style="padding:4px 8px;background:#2196f3;color:white;border:none;border-radius:4px;cursor:pointer;">✏️</button>';
-    if(u.username!=='admin') {
-      h+=' <button class="btn-sm btn-danger" onclick="hapusUser(\''+u.username+'\')" style="padding:4px 8px;background:#e53935;color:white;border:none;border-radius:4px;cursor:pointer;">🗑</button>';
-    }
-    h+='</td>';
-    row.innerHTML=h;
-  });
 }
-
-// ===================== FIX INPUTS AFTER LOGIN =====================
-function fixInputsAfterLogin() {
-  setTimeout(function() {
-    var searchInput = document.getElementById('searchProduct');
-    if (searchInput) {
-      searchInput.disabled = false;
-      searchInput.readOnly = false;
-      searchInput.style.pointerEvents = 'auto';
-    }
-    var inputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="password"]');
-    for (var i = 0; i < inputs.length; i++) {
-      inputs[i].disabled = false;
-      inputs[i].readOnly = false;
-    }
-  }, 500);
-}
-
-// ===================== EXPOSE FUNCTIONS =====================
-window.login = login;
-window.logout = logout;
-window.hashPassword = hashPassword;
-window.checkSession = checkSession;
-window.hideLoginOverlay = hideLoginOverlay;
-window.fixInputsAfterLogin = fixInputsAfterLogin;
-window.tambahUser = tambahUser;
-window.hapusUser = hapusUser;
-window.editUser = editUser;
-window.simpanEditUser = simpanEditUser;
-window.tampilkanUserList = tampilkanUserList;
-window.refreshSessions = refreshSessions;
-window.forceDisconnect = forceDisconnect;
-window.disconnectAllUsers = disconnectAllUsers;
-window.clearAllCaches = clearAllCaches;
-window.updateActiveUserDisplay = updateActiveUserDisplay;
-window.applyRoleRestrictions = applyRoleRestrictions;
-window.resetInactivityTimer = resetInactivityTimer;
-window.startSessionTracking = startSessionTracking;
-window.stopSessionTracking = stopSessionTracking;
-window.getDeviceInfo = getDeviceInfo;

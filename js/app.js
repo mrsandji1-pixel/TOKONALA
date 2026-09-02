@@ -1,33 +1,4 @@
-// ===================== APP.JS =====================
-
-// ===================== FIX INPUTS =====================
-function fixInputsAfterLogin() {
-  setTimeout(function() {
-    var searchInput = document.getElementById('searchProduct');
-    if (searchInput) {
-      searchInput.disabled = false;
-      searchInput.readOnly = false;
-      searchInput.style.pointerEvents = 'auto';
-    }
-    var inputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="password"]');
-    for (var i = 0; i < inputs.length; i++) {
-      inputs[i].disabled = false;
-      inputs[i].readOnly = false;
-    }
-  }, 500);
-}
-
-// ===================== HIDE LOGIN OVERLAY =====================
-function hideLoginOverlay() {
-  var loginOverlay = document.getElementById('loginOverlay');
-  if (loginOverlay) {
-    loginOverlay.style.display = 'none';
-    loginOverlay.style.visibility = 'hidden';
-    loginOverlay.style.opacity = '0';
-    loginOverlay.style.pointerEvents = 'none';
-    loginOverlay.style.zIndex = '-1';
-  }
-}
+// ===================== APP.JS - FIXED VERSION =====================
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -43,23 +14,55 @@ document.querySelectorAll('.tab-btn').forEach(b => {
   b.addEventListener('click', () => {
     if (!currentUser) return;
     if (!b.dataset.page) return;
+    
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-    document.getElementById('page-' + b.dataset.page).classList.add('active');
+    
+    var pageEl = document.getElementById('page-' + b.dataset.page);
+    if (pageEl) {
+      pageEl.classList.add('active');
+    }
     b.classList.add('active');
     activeTab = b.dataset.page;
-    if (activeTab === 'laporan') { setDefaultDateFilter(); muatLaporan(); }
-    if (activeTab === 'setting') { muatProfilToko(); tampilkanUserList(); aturHakAkses(); loadFeatures(); }
-    if (activeTab === 'fitur') { setupFiturPage(); }
-    if (activeTab === 'utang') { if (typeof setupUtang === 'function') setupUtang(); }
-    if (activeTab === 'opname') { if (typeof setupOpname === 'function') setupOpname(); }
-    if (activeTab === 'biaya') { if (typeof setupBiaya === 'function') setupBiaya(); }
-    if (activeTab === 'multiuser') { if (typeof setupMultiUser === 'function') setupMultiUser(); }
-    if (activeTab === 'emailstruk') { if (typeof setupEmailStruk === 'function') setupEmailStruk(); }
-    if (activeTab === 'inventory') refreshProductList();
+    
+    // FIXED: Handle each tab with proper checks
+    if (activeTab === 'laporan') { 
+      setDefaultDateFilter(); 
+      muatLaporan(); 
+    }
+    if (activeTab === 'setting') { 
+      if (typeof muatProfilToko === 'function') muatProfilToko(); 
+      if (typeof tampilkanUserList === 'function') tampilkanUserList(); 
+      if (typeof aturHakAkses === 'function') aturHakAkses(); 
+      if (typeof loadFeatures === 'function') loadFeatures(); 
+    }
+    if (activeTab === 'fitur') { 
+      if (typeof setupFiturPage === 'function') setupFiturPage(); 
+    }
+    if (activeTab === 'utang') { 
+      if (typeof setupUtang === 'function') setupUtang(); 
+    }
+    if (activeTab === 'opname') { 
+      if (typeof setupOpname === 'function') setupOpname(); 
+    }
+    if (activeTab === 'biaya') { 
+      if (typeof setupBiaya === 'function') setupBiaya(); 
+    }
+    if (activeTab === 'multiuser') { 
+      if (typeof setupMultiUser === 'function') setupMultiUser(); 
+    }
+    if (activeTab === 'emailstruk') { 
+      if (typeof setupEmailStruk === 'function') setupEmailStruk(); 
+    }
+    if (activeTab === 'inventory') {
+      if (typeof refreshProductList === 'function') refreshProductList();
+    }
     if (activeTab === 'transaksi') {
-      document.getElementById('scanInputTrans').focus();
-      setTimeout(() => { if (typeof checkLowStockBanner === 'function') checkLowStockBanner(); }, 500);
+      var scanInput = document.getElementById('scanInputTrans');
+      if (scanInput) scanInput.focus();
+      setTimeout(() => { 
+        if (typeof checkLowStockBanner === 'function') checkLowStockBanner(); 
+      }, 500);
     }
   });
 });
@@ -67,8 +70,15 @@ document.querySelectorAll('.tab-btn').forEach(b => {
 function initApp() {
   checkSession();
 }
-initApp();
 
+// FIXED: Wait for DOM ready before init
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+// ===================== BACK BUTTON PREVENTION =====================
 let backCount = 0;
 let backTimer = null;
 
@@ -97,6 +107,11 @@ document.addEventListener('visibilitychange', function() {
   if (document.hidden) { backCount = 0; clearTimeout(backTimer); }
 });
 
-// ===================== EXPOSE FUNCTIONS =====================
-window.fixInputsAfterLogin = fixInputsAfterLogin;
-window.hideLoginOverlay = hideLoginOverlay;
+// ===================== ERROR HANDLING =====================
+window.addEventListener('error', function(e) {
+  console.error('Global error:', e.message, e.filename, e.lineno);
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('Unhandled promise rejection:', e.reason);
+});

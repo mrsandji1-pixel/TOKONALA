@@ -1,59 +1,102 @@
-// ===================== LAPORAN.JS =====================
+// ===================== LAPORAN.JS - FIXED VERSION =====================
 let chartInstance = null;
 let topProductsChart = null;
 
+// FIXED: Use local date instead of UTC
+function getLocalDateString(date) {
+  var d = date || new Date();
+  var year = d.getFullYear();
+  var month = ('0' + (d.getMonth() + 1)).slice(-2);
+  var day = ('0' + d.getDate()).slice(-2);
+  return year + '-' + month + '-' + day;
+}
+
 function setDefaultDateFilter() {
-  const t = new Date().toISOString().slice(0,10);
-  document.getElementById('tglAwal').value = t;
-  document.getElementById('tglAkhir').value = t;
+  var t = getLocalDateString();
+  var awal = document.getElementById('tglAwal');
+  var akhir = document.getElementById('tglAkhir');
+  if (awal) awal.value = t;
+  if (akhir) akhir.value = t;
 }
 
 function filterToday() { setDefaultDateFilter(); muatLaporan(); }
+
 function filterThisWeek() {
-  const n = new Date(), d = n.getDay(), s = new Date(n);
+  var n = new Date();
+  var d = n.getDay();
+  var s = new Date(n);
   s.setDate(n.getDate() - d + (d === 0 ? -6 : 1));
-  const e = new Date(s); e.setDate(s.getDate() + 6);
-  document.getElementById('tglAwal').value = s.toISOString().slice(0,10);
-  document.getElementById('tglAkhir').value = e.toISOString().slice(0,10);
+  var e = new Date(s);
+  e.setDate(s.getDate() + 6);
+  
+  var awal = document.getElementById('tglAwal');
+  var akhir = document.getElementById('tglAkhir');
+  if (awal) awal.value = getLocalDateString(s);
+  if (akhir) akhir.value = getLocalDateString(e);
   muatLaporan();
 }
+
 function filterMTD() {
-  const n = new Date();
-  document.getElementById('tglAwal').value = new Date(n.getFullYear(), n.getMonth(), 1).toISOString().slice(0,10);
-  document.getElementById('tglAkhir').value = n.toISOString().slice(0,10);
+  var n = new Date();
+  var awal = document.getElementById('tglAwal');
+  var akhir = document.getElementById('tglAkhir');
+  if (awal) awal.value = getLocalDateString(new Date(n.getFullYear(), n.getMonth(), 1));
+  if (akhir) akhir.value = getLocalDateString(n);
   muatLaporan();
 }
+
 function filterYTD() {
-  const n = new Date();
-  document.getElementById('tglAwal').value = new Date(n.getFullYear(), 0, 1).toISOString().slice(0,10);
-  document.getElementById('tglAkhir').value = n.toISOString().slice(0,10);
+  var n = new Date();
+  var awal = document.getElementById('tglAwal');
+  var akhir = document.getElementById('tglAkhir');
+  if (awal) awal.value = getLocalDateString(new Date(n.getFullYear(), 0, 1));
+  if (akhir) akhir.value = getLocalDateString(n);
   muatLaporan();
 }
 
 async function muatLaporan() {
-  const a = document.getElementById('tglAwal').value, b = document.getElementById('tglAkhir').value;
+  var awalEl = document.getElementById('tglAwal');
+  var akhirEl = document.getElementById('tglAkhir');
+  if (!awalEl || !akhirEl) return;
+  
+  var a = awalEl.value;
+  var b = akhirEl.value;
   if (!a || !b) return;
 
-  const all = await getAllTransactions(a + 'T00:00:00', b + 'T23:59:59');
-  const tbody = document.querySelector('#reportTable tbody');
+  var all = await getAllTransactions(a + 'T00:00:00', b + 'T23:59:59');
+  var tbody = document.querySelector('#reportTable tbody');
+  if (!tbody) return;
+  
   tbody.innerHTML = '';
   if (!all.length) {
-    tbody.innerHTML = '<tr><td colspan="8">Tidak ada</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Tidak ada</td></tr>';
   } else {
     all.forEach(t => {
       const row = tbody.insertRow();
-      row.innerHTML = `<td>${t.no_invoice}</td><td>${new Date(t.tanggal).toLocaleDateString('id-ID')}</td><td>${t.customer || '-'}</td><td>Rp${t.total.toLocaleString('id')}</td><td>
-  <button class="btn-sm" onclick="viewInvoice('${t.no_invoice}')">👁️</button>
-  <button class="btn-sm" onclick="cetakUlang('${t.no_invoice}')">🖨️ PDF</button>
-  <button class="btn-sm" onclick="cetakUlangBT('${t.no_invoice}')">🖨️ BT</button>
-  ${(typeof activeFeatures !== 'undefined' && activeFeatures.emailstruk) ? `<button class="btn-sm" onclick="emailStrukDariLaporan('${t.no_invoice}')">📧</button>` : ''}
-  ${(typeof activeFeatures !== 'undefined' && activeFeatures.whatsapp) ? `<button class="btn-sm" onclick="whatsappStruk('${t.no_invoice}')">📱</button>` : ''}
-  ${(currentUser && currentUser.role === 'admin') ? `<button class="btn-sm btn-danger" onclick="hapusTransaksi('${t.no_invoice}')">🗑</button>` : ''}
-</td>`;
+      var actions = '<button class="btn-sm" onclick="viewInvoice(\'' + t.no_invoice + '\')">👁️</button>';
+      actions += ' <button class="btn-sm" onclick="cetakUlang(\'' + t.no_invoice + '\')">🖨️ PDF</button>';
+      actions += ' <button class="btn-sm" onclick="cetakUlangBT(\'' + t.no_invoice + '\')">🖨️ BT</button>';
+      
+      if (typeof activeFeatures !== 'undefined' && activeFeatures.emailstruk) {
+        actions += ' <button class="btn-sm" onclick="emailStrukDariLaporan(\'' + t.no_invoice + '\')">📧</button>';
+      }
+      if (typeof activeFeatures !== 'undefined' && activeFeatures.whatsapp) {
+        actions += ' <button class="btn-sm" onclick="whatsappStruk(\'' + t.no_invoice + '\')">📱</button>';
+      }
+      if (currentUser && currentUser.role === 'admin') {
+        actions += ' <button class="btn-sm btn-danger" onclick="hapusTransaksi(\'' + t.no_invoice + '\')">🗑</button>';
+      }
+      
+      row.innerHTML = '<td>' + t.no_invoice + '</td><td>' + new Date(t.tanggal).toLocaleDateString('id-ID') + '</td><td>' + (t.customer || '-') + '</td><td>Rp' + (t.total || 0).toLocaleString('id') + '</td><td>' + actions + '</td>';
     });
   }
-  document.getElementById('totalTransaksi').textContent = all.length;
-  document.getElementById('totalPendapatan').textContent = 'Rp' + all.reduce((s, t) => s + t.total, 0).toLocaleString('id');
+  
+  var totalTransaksiEl = document.getElementById('totalTransaksi');
+  var totalPendapatanEl = document.getElementById('totalPendapatan');
+  
+  if (totalTransaksiEl) totalTransaksiEl.textContent = all.length;
+  if (totalPendapatanEl) totalPendapatanEl.textContent = 'Rp' + all.reduce((s, t) => s + (t.total || 0), 0).toLocaleString('id');
+  
   renderChart(all, 'daily', a, b);
   renderTopProductsChart(all);
   checkLowStock();
@@ -67,7 +110,11 @@ async function checkLowStock() {
       .select('*')
       .order('stok');
     
-    const lowStockProducts = (products || []).filter(p => p.stok <= (p.min_stok || 10));
+    // FIXED: Use min_stok if set, otherwise use 0 (not 10)
+    const lowStockProducts = (products || []).filter(p => {
+      var minStok = p.min_stok !== undefined && p.min_stok !== null ? p.min_stok : 0;
+      return (p.stok || 0) <= minStok;
+    });
     
     const alertDiv = document.getElementById('lowStockAlert');
     const listEl = document.getElementById('lowStockList');
@@ -81,7 +128,7 @@ async function checkLowStock() {
     
     alertDiv.style.display = 'block';
     listEl.innerHTML = lowStockProducts.map(p => 
-      `<li>${p.nama} - Stok: <b style="color:#e53935;">${p.stok}</b> (Min: ${p.min_stok || 10}) <button class="btn-sm" onclick="document.querySelector('[data-page=inventory]').click(); document.getElementById('prodBarcode').value='${p.barcode}'; cariAtauTambahProduk();" style="margin-left:8px;">📦 Restock</button></li>`
+      '<li>' + p.nama + ' - Stok: <b style="color:#e53935;">' + p.stok + '</b> (Min: ' + (p.min_stok || 0) + ') <button class="btn-sm" onclick="document.querySelector(\'[data-page=inventory]\').click(); document.getElementById(\'prodBarcode\').value=\'' + p.barcode + '\'; cariAtauTambahProduk();" style="margin-left:8px;">📦 Restock</button></li>'
     ).join('');
   } catch (e) {
     console.error('Low stock check failed:', e);
@@ -111,7 +158,7 @@ async function cetakUlangBT(noInv) {
 }
 
 async function hapusTransaksi(noInv) {
-  if (!confirm(`Hapus transaksi ${noInv}? Stok akan dikembalikan.`)) return;
+  if (!confirm('Hapus transaksi ' + noInv + '? Stok akan dikembalikan.')) return;
   const trx = await getTransaction(noInv);
   if (!trx) return alert('Transaksi tidak ditemukan');
   try {
@@ -122,7 +169,7 @@ async function hapusTransaksi(noInv) {
       }
     }
     await deleteTransaction(noInv);
-    try { await supabaseClient.storage.from('invoices').remove([`${noInv}.pdf`]); } catch(e) {}
+    try { await supabaseClient.storage.from('invoices').remove([noInv + '.pdf']); } catch(e) {}
     alert('Transaksi dihapus');
     muatLaporan();
   } catch (e) { alert('Gagal menghapus: ' + e.message); }
@@ -138,12 +185,6 @@ async function viewInvoice(noInv) {
     var info = '📋 Pesanan: ' + trx.no_pesanan + '\n';
     info += '💰 Total: Rp' + (trx.total || 0).toLocaleString('id') + '\n';
     info += '📝 Dibuat: ' + new Date(trx.created_at).toLocaleString('id-ID') + ' oleh ' + (trx.created_by || '-') + '\n';
-    if (trx.modified_by) {
-      info += '✏️ Diubah: ' + new Date(trx.modified_at).toLocaleString('id-ID') + ' oleh ' + trx.modified_by + '\n';
-    }
-    if (trx.closed_by) {
-      info += '🔒 Dibayar: ' + new Date(trx.closed_at).toLocaleString('id-ID') + ' oleh ' + trx.closed_by + '\n';
-    }
     if (trx.customer) info += '👤 Customer: ' + trx.customer + '\n';
     if (trx.items) {
       info += '\n📦 Items:\n';
@@ -160,9 +201,7 @@ async function viewInvoice(noInv) {
   info += '💰 Total: Rp' + (trx.total || 0).toLocaleString('id') + '\n';
   info += '💵 Bayar: Rp' + (trx.bayar || 0).toLocaleString('id') + '\n';
   info += '🔄 Kembali: Rp' + (trx.kembali || 0).toLocaleString('id') + '\n';
-  if (trx.created_by) {
-    info += '👤 Kasir: ' + trx.created_by + '\n';
-  }
+  if (trx.created_by) info += '👤 Kasir: ' + trx.created_by + '\n';
   if (trx.customer) info += '👤 Customer: ' + trx.customer + '\n';
   
   if (trx.items) {
@@ -222,9 +261,9 @@ function generateInvoicePDF(trx) {
     y += 5;
   });
   doc.line(marginKiri, y, xSubtotal, y); y += 4;
-  doc.text('Total:', xItem, y); doc.text('Rp' + trx.total.toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
-  doc.text('Bayar:', xItem, y); doc.text('Rp' + trx.bayar.toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
-  doc.text('Kembali:', xItem, y); doc.text('Rp' + trx.kembali.toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
+  doc.text('Total:', xItem, y); doc.text('Rp' + (trx.total || 0).toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
+  doc.text('Bayar:', xItem, y); doc.text('Rp' + (trx.bayar || 0).toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
+  doc.text('Kembali:', xItem, y); doc.text('Rp' + (trx.kembali || 0).toLocaleString('id'), xSubtotal, y, { align: 'right' }); y += 5;
   if (trx.toko_footer) { doc.setFontSize(7); doc.text(trx.toko_footer, lebarKertas / 2, y, { align: 'center' }); }
   return doc.output('blob');
 }
@@ -235,16 +274,24 @@ function renderChart(trans, mode, start, end) {
   if (!ctx) return;
   let labels, data;
   if (mode === 'hourly') {
-    const hourly = {}; trans.forEach(t => { const hr = new Date(t.tanggal).getHours(); hourly[hr] = (hourly[hr] || 0) + t.total; });
+    const hourly = {}; trans.forEach(t => { const hr = new Date(t.tanggal).getHours(); hourly[hr] = (hourly[hr] || 0) + (t.total || 0); });
     labels = Array.from({ length: 24 }, (_, i) => i + ':00');
     data = labels.map((_, i) => hourly[i] || 0);
   } else if (mode === 'daily') {
     const daily = {}; const s = new Date(start), e = new Date(end);
-    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) { daily[d.toISOString().slice(0, 10)] = 0; }
-    trans.forEach(t => { const k = t.tanggal.slice(0, 10); if (daily[k] !== undefined) daily[k] += t.total; });
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) { 
+      daily[getLocalDateString(d)] = 0; 
+    }
+    trans.forEach(t => { 
+      const k = t.tanggal.slice(0, 10); 
+      if (daily[k] !== undefined) daily[k] += (t.total || 0); 
+    });
     const keys = Object.keys(daily).sort();
-    labels = keys.map(k => new Date(k).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
+    labels = keys.map(k => new Date(k + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
     data = keys.map(k => daily[k]);
+  } else {
+    labels = ['Tidak ada data'];
+    data = [0];
   }
   chartInstance = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Penjualan (Rp)', data, backgroundColor: '#009688', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: v => 'Rp' + v.toLocaleString('id') } } } } });
 }
@@ -253,39 +300,64 @@ function renderTopProductsChart(trans) {
   if (topProductsChart) topProductsChart.destroy();
   const ctx = document.getElementById('chartTopProducts')?.getContext('2d');
   if (!ctx) return;
-  const sales = {}; trans.forEach(t => { if (t.items) t.items.forEach(i => { const k = i.nama || i.barcode; if (!sales[k]) sales[k] = { nama: i.nama, qty: 0 }; sales[k].qty += i.qty || 1; }); });
+  const sales = {}; 
+  trans.forEach(t => { 
+    if (t.items) t.items.forEach(i => { 
+      const k = i.nama || i.barcode; 
+      if (!sales[k]) sales[k] = { nama: i.nama, qty: 0 }; 
+      sales[k].qty += i.qty || 1; 
+    }); 
+  });
   const sorted = Object.values(sales).sort((a, b) => b.qty - a.qty).slice(0, 10);
   const colors = ['#e53935', '#1e88e5', '#fdd835', '#8e24aa', '#fb8c00', '#d81b60', '#00acc1', '#7cb342', '#5e35b1', '#ffb300'];
+  
+  if (sorted.length === 0) {
+    topProductsChart = new Chart(ctx, { type: 'pie', data: { labels: ['Tidak ada data'], datasets: [{ data: [1], backgroundColor: ['#e0e0e0'], borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } } });
+    return;
+  }
+  
   topProductsChart = new Chart(ctx, { type: 'pie', data: { labels: sorted.map(p => p.nama), datasets: [{ data: sorted.map(p => p.qty), backgroundColor: colors.slice(0, sorted.length), borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } } });
 }
 
 function exportCSV() {
   const tbody = document.querySelector('#reportTable tbody');
+  if (!tbody) return;
   let csv = 'No Invoice,Tanggal,Customer,Total\n';
-  tbody.querySelectorAll('tr').forEach(row => { const cells = row.querySelectorAll('td'); if (cells.length >= 4) { csv += `"${cells[0].textContent}","${cells[1].textContent}","${cells[2].textContent}","${cells[3].textContent.replace('Rp ', '').replace(/\./g, '')}"\n`; } });
+  tbody.querySelectorAll('tr').forEach(row => { 
+    const cells = row.querySelectorAll('td'); 
+    if (cells.length >= 4) { 
+      csv += '"' + cells[0].textContent + '","' + cells[1].textContent + '","' + cells[2].textContent + '","' + cells[3].textContent.replace('Rp ', '').replace(/\./g, '') + '"\n'; 
+    } 
+  });
   const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'laporan.csv'; a.click();
+  const a = document.createElement('a'); 
+  a.href = URL.createObjectURL(blob); 
+  a.download = 'laporan.csv'; 
+  a.click();
 }
 
 // ===================== SEND EMAIL =====================
+// FIXED: Gunakan Supabase Edge Function atau backend yang tersedia
 async function sendEmailResend(to, subject, message) {
-  const response = await fetch('/api/send-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, subject, message }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Gagal mengirim email');
+  // FIXED: Coba gunakan Supabase Edge Function jika tersedia
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('send-email', {
+      body: { to, subject, message }
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('Edge Function error:', e);
+    throw new Error('Email service tidak tersedia. Silakan konfigurasi Supabase Edge Function untuk mengirim email.');
   }
-  return response.json();
 }
 
 async function emailLaporanHarian() {
   const settings = await getSettings();
   if (!settings.report_email) { alert('Email belum diatur.'); return; }
   const today = new Date();
-  const tanggal = today.toISOString().slice(0, 10);
+  const tanggal = getLocalDateString(today);
   const tanggalFormat = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const transactions = await getAllTransactions(tanggal + 'T00:00:00', tanggal + 'T23:59:59');
   const totalTransaksi = transactions.length;
@@ -293,12 +365,12 @@ async function emailLaporanHarian() {
   const productSales = {};
   transactions.forEach(t => { if (t.items) { t.items.forEach(item => { const key = item.barcode; if (!productSales[key]) { productSales[key] = { nama: item.nama, qty: 0, total: 0 }; } productSales[key].qty += item.qty || 0; productSales[key].total += (item.harga * item.qty) || 0; }); } });
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 5);
-  let message = `📊 LAPORAN HARIAN POS\n────────────────────────\nToko: ${settings.nama || 'POS'}\nTanggal: ${tanggalFormat}\n────────────────────────\n\n📋 RINGKASAN:\nTotal Transaksi: ${totalTransaksi}\nTotal Pendapatan: Rp ${totalPendapatan.toLocaleString('id')}\n`;
-  if (totalTransaksi > 0) { message += `Rata-rata: Rp ${Math.round(totalPendapatan / totalTransaksi).toLocaleString('id')}\n`; }
-  if (topProducts.length > 0) { message += `\n🔥 PRODUK TERLARIS:\n`; topProducts.forEach((p, i) => { message += `${i + 1}. ${p.nama} - ${p.qty} pcs (Rp ${p.total.toLocaleString('id')})\n`; }); }
-  message += `\n────────────────────────\n📱 Dikirim dari POS System\n`;
+  let message = '📊 LAPORAN HARIAN POS\n────────────────────────\nToko: ' + (settings.nama || 'POS') + '\nTanggal: ' + tanggalFormat + '\n────────────────────────\n\n📋 RINGKASAN:\nTotal Transaksi: ' + totalTransaksi + '\nTotal Pendapatan: Rp ' + totalPendapatan.toLocaleString('id') + '\n';
+  if (totalTransaksi > 0) { message += 'Rata-rata: Rp ' + Math.round(totalPendapatan / totalTransaksi).toLocaleString('id') + '\n'; }
+  if (topProducts.length > 0) { message += '\n🔥 PRODUK TERLARIS:\n'; topProducts.forEach((p, i) => { message += (i + 1) + '. ' + p.nama + ' - ' + p.qty + ' pcs (Rp ' + p.total.toLocaleString('id') + ')\n'; }); }
+  message += '\n────────────────────────\n📱 Dikirim dari POS System\n';
   try {
-    await sendEmailResend(settings.report_email, `📊 Laporan Harian POS - ${tanggal}`, message);
+    await sendEmailResend(settings.report_email, '📊 Laporan Harian POS - ' + tanggal, message);
     alert('✅ Laporan harian berhasil dikirim ke ' + settings.report_email);
   } catch (error) { alert('❌ Gagal mengirim: ' + error.message); }
 }
@@ -315,19 +387,19 @@ async function emailLaporanPeriode() {
   const productSales = {};
   transactions.forEach(t => { if (t.items) { t.items.forEach(item => { const key = item.barcode; if (!productSales[key]) { productSales[key] = { nama: item.nama, qty: 0, total: 0 }; } productSales[key].qty += item.qty || 0; productSales[key].total += (item.harga * item.qty) || 0; }); } });
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 10);
-  let message = `📊 LAPORAN POS\n────────────────────────\nToko: ${settings.nama || 'POS'}\nPeriode: ${tglAwal} s/d ${tglAkhir}\n────────────────────────\n\n📋 RINGKASAN:\nTotal Transaksi: ${totalTransaksi}\nTotal Pendapatan: Rp ${totalPendapatan.toLocaleString('id')}\n`;
-  if (totalTransaksi > 0) { message += `Rata-rata: Rp ${Math.round(totalPendapatan / totalTransaksi).toLocaleString('id')}\n`; }
-  if (topProducts.length > 0) { message += `\n🔥 PRODUK TERLARIS:\n`; topProducts.forEach((p, i) => { message += `${i + 1}. ${p.nama} - ${p.qty} pcs (Rp ${p.total.toLocaleString('id')})\n`; }); }
-  message += `\n────────────────────────\n📱 Dikirim dari POS System\n`;
+  let message = '📊 LAPORAN POS\n────────────────────────\nToko: ' + (settings.nama || 'POS') + '\nPeriode: ' + tglAwal + ' s/d ' + tglAkhir + '\n────────────────────────\n\n📋 RINGKASAN:\nTotal Transaksi: ' + totalTransaksi + '\nTotal Pendapatan: Rp ' + totalPendapatan.toLocaleString('id') + '\n';
+  if (totalTransaksi > 0) { message += 'Rata-rata: Rp ' + Math.round(totalPendapatan / totalTransaksi).toLocaleString('id') + '\n'; }
+  if (topProducts.length > 0) { message += '\n🔥 PRODUK TERLARIS:\n'; topProducts.forEach((p, i) => { message += (i + 1) + '. ' + p.nama + ' - ' + p.qty + ' pcs (Rp ' + p.total.toLocaleString('id') + ')\n'; }); }
+  message += '\n────────────────────────\n📱 Dikirim dari POS System\n';
   try {
-    await sendEmailResend(settings.report_email, `📊 Laporan POS - ${tglAwal} s/d ${tglAkhir}`, message);
+    await sendEmailResend(settings.report_email, '📊 Laporan POS - ' + tglAwal + ' s/d ' + tglAkhir, message);
     alert('✅ Laporan periode berhasil dikirim ke ' + settings.report_email);
   } catch (error) { alert('❌ Gagal mengirim: ' + error.message); }
 }
 
 async function kirimEmailLaporan(settings) {
   const today = new Date();
-  const tanggal = today.toISOString().slice(0, 10);
+  const tanggal = getLocalDateString(today);
   const tanggalFormat = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const transactions = await getAllTransactions(tanggal + 'T00:00:00', tanggal + 'T23:59:59');
   const totalTransaksi = transactions.length;
@@ -335,42 +407,46 @@ async function kirimEmailLaporan(settings) {
   const productSales = {};
   transactions.forEach(t => { if (t.items) { t.items.forEach(item => { const key = item.barcode; if (!productSales[key]) { productSales[key] = { nama: item.nama, qty: 0, total: 0 }; } productSales[key].qty += item.qty || 0; productSales[key].total += (item.harga * item.qty) || 0; }); } });
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 5);
-  let message = `📊 LAPORAN POS - ${tanggalFormat}\n────────────────────────\nToko: ${settings.nama || 'POS'}\n────────────────────────\n\nTotal Transaksi: ${totalTransaksi}\nTotal Pendapatan: Rp ${totalPendapatan.toLocaleString('id')}\n\n`;
-  if (topProducts.length > 0) { message += `🔥 PRODUK TERLARIS:\n`; topProducts.forEach((p, i) => { message += `${i + 1}. ${p.nama} - ${p.qty} pcs\n`; }); }
-  message += `\n────────────────────────\n📱 Dikirim otomatis oleh POS\n`;
-  try { await sendEmailResend(settings.report_email, `📊 Laporan POS - ${tanggal}`, message); console.log('Auto report sent'); }
+  let message = '📊 LAPORAN POS - ' + tanggalFormat + '\n────────────────────────\nToko: ' + (settings.nama || 'POS') + '\n────────────────────────\n\nTotal Transaksi: ' + totalTransaksi + '\nTotal Pendapatan: Rp ' + totalPendapatan.toLocaleString('id') + '\n\n';
+  if (topProducts.length > 0) { message += '🔥 PRODUK TERLARIS:\n'; topProducts.forEach((p, i) => { message += (i + 1) + '. ' + p.nama + ' - ' + p.qty + ' pcs\n'; }); }
+  message += '\n────────────────────────\n📱 Dikirim otomatis oleh POS\n';
+  try { await sendEmailResend(settings.report_email, '📊 Laporan POS - ' + tanggal, message); console.log('Auto report sent'); }
   catch (error) { console.error('Auto report failed:', error); }
 }
 
 async function checkAutoEmailReport() {
-  const settings = await getSettings();
-  if (!settings.report_email || !settings.report_frequency || settings.report_frequency === 'none') return;
-  const today = new Date();
-  const currentHour = today.getHours();
-  const lastSent = localStorage.getItem('lastReportSent');
-  let shouldSend = false;
-  if (settings.report_frequency === 'daily') {
-    const th = parseInt(settings.report_daily_time) || 21;
-    const ts = today.toISOString().slice(0, 10);
-    if (lastSent !== ts && currentHour === th) shouldSend = true;
-  } else if (settings.report_frequency === 'weekly') {
-    const th = parseInt(settings.report_weekly_time) || 21;
-    const td = parseInt(settings.report_weekly_day);
-    const tdd = today.getDay();
-    const ws = `${today.getFullYear()}-W${getWeekNumber(today)}`;
-    if (tdd === td && currentHour === th && lastSent !== ws) shouldSend = true;
-  } else if (settings.report_frequency === 'monthly') {
-    const th = parseInt(settings.report_monthly_time) || 21;
-    const tdd = parseInt(settings.report_monthly_date);
-    const tdate = today.getDate();
-    const ms = `${today.getFullYear()}-${today.getMonth() + 1}`;
-    if (tdate === tdd && currentHour === th && lastSent !== ms) shouldSend = true;
-  }
-  if (shouldSend) {
-    await kirimEmailLaporan(settings);
-    if (settings.report_frequency === 'daily') localStorage.setItem('lastReportSent', today.toISOString().slice(0, 10));
-    else if (settings.report_frequency === 'weekly') localStorage.setItem('lastReportSent', `${today.getFullYear()}-W${getWeekNumber(today)}`);
-    else if (settings.report_frequency === 'monthly') localStorage.setItem('lastReportSent', `${today.getFullYear()}-${today.getMonth() + 1}`);
+  try {
+    const settings = await getSettings();
+    if (!settings.report_email || !settings.report_frequency || settings.report_frequency === 'none') return;
+    const today = new Date();
+    const currentHour = today.getHours();
+    const lastSent = localStorage.getItem('lastReportSent');
+    let shouldSend = false;
+    if (settings.report_frequency === 'daily') {
+      const th = parseInt(settings.report_daily_time) || 21;
+      const ts = getLocalDateString(today);
+      if (lastSent !== ts && currentHour === th) shouldSend = true;
+    } else if (settings.report_frequency === 'weekly') {
+      const th = parseInt(settings.report_weekly_time) || 21;
+      const td = parseInt(settings.report_weekly_day);
+      const tdd = today.getDay();
+      const ws = today.getFullYear() + '-W' + getWeekNumber(today);
+      if (tdd === td && currentHour === th && lastSent !== ws) shouldSend = true;
+    } else if (settings.report_frequency === 'monthly') {
+      const th = parseInt(settings.report_monthly_time) || 21;
+      const tdd = parseInt(settings.report_monthly_date);
+      const tdate = today.getDate();
+      const ms = today.getFullYear() + '-' + (today.getMonth() + 1);
+      if (tdate === tdd && currentHour === th && lastSent !== ms) shouldSend = true;
+    }
+    if (shouldSend) {
+      await kirimEmailLaporan(settings);
+      if (settings.report_frequency === 'daily') localStorage.setItem('lastReportSent', getLocalDateString(today));
+      else if (settings.report_frequency === 'weekly') localStorage.setItem('lastReportSent', today.getFullYear() + '-W' + getWeekNumber(today));
+      else if (settings.report_frequency === 'monthly') localStorage.setItem('lastReportSent', today.getFullYear() + '-' + (today.getMonth() + 1));
+    }
+  } catch(e) {
+    console.error('checkAutoEmailReport error:', e);
   }
 }
 
@@ -389,7 +465,12 @@ async function checkLowStockBanner() {
       .select('*')
       .order('stok');
     
-    const lowStockProducts = (products || []).filter(p => p.stok <= (p.min_stok || 10));
+    // FIXED: Use min_stok if set, otherwise use 0
+    const lowStockProducts = (products || []).filter(p => {
+      var minStok = p.min_stok !== undefined && p.min_stok !== null ? p.min_stok : 0;
+      return (p.stok || 0) <= minStok;
+    });
+    
     const banner = document.getElementById('lowStockBanner');
     const text = document.getElementById('lowStockBannerText');
     
@@ -401,7 +482,7 @@ async function checkLowStockBanner() {
     }
     
     banner.style.display = 'block';
-    const names = lowStockProducts.map(p => `${p.nama} (${p.stok})`).join(', ');
+    const names = lowStockProducts.map(p => p.nama + ' (' + p.stok + ')').join(', ');
     text.textContent = names;
   } catch (e) {
     console.error('Banner check failed:', e);
