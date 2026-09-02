@@ -20,6 +20,524 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>RodanPOS</title>
+  <style>
+/* ===================== CRITICAL CSS - FALLBACK ===================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: #f0f2f5;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+#app {
+  width: 100%;
+  max-width: 800px;
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===================== OVERLAY / MODAL ===================== */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.login-box {
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.login-box h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #00695c;
+}
+
+.login-box input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1.5px solid #e0e4e8;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.login-box input:focus {
+  outline: none;
+  border-color: #00897b;
+  box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
+}
+
+/* ===================== TABS ===================== */
+.tabs {
+  display: flex;
+  background: linear-gradient(135deg, #00695c, #00897b);
+  color: white;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 14px 8px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+  letter-spacing: 0.3px;
+}
+
+.tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tab-btn.active {
+  color: #ffffff;
+  border-bottom-color: #ffd54f;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.logout-btn {
+  background: #e53935;
+  border: none;
+  color: white;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+  border-radius: 6px;
+  margin-left: 8px;
+}
+
+/* ===================== PAGE ===================== */
+.page {
+  display: none;
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  background: #fafbfc;
+}
+
+.page.active {
+  display: block;
+}
+
+/* ===================== BUTTONS ===================== */
+.btn {
+  background: #00897b;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 2px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: #00695c;
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: #e53935;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+/* ===================== FORM ===================== */
+.form-group {
+  margin-bottom: 14px;
+  position: relative;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #455a64;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1.5px solid #e0e4e8;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  color: #263238;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #00897b;
+  box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
+}
+
+/* ===================== TABLES ===================== */
+.cart-table, .report-table, .user-table, .product-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 8px 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cart-table th, .cart-table td,
+.report-table th, .report-table td,
+.user-table th, .user-table td,
+.product-table th, .product-table td {
+  border: none;
+  border-bottom: 1px solid #e8ecf0;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.cart-table th, .report-table th, .user-table th, .product-table th {
+  background: #e0f2f1;
+  color: #00695c;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+/* ===================== SETTING MODAL ===================== */
+.setting-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.setting-modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #00695c;
+  color: white;
+  flex-shrink: 0;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.close-modal {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* ===================== SEARCH RESULTS ===================== */
+.search-results {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1.5px solid #e0e4e8;
+  border-top: none;
+  background: white;
+  position: absolute;
+  z-index: 10;
+  width: 100%;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  top: 100%;
+  left: 0;
+}
+
+.search-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+  background: white;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-item:hover {
+  background: #e0f2f1;
+}
+
+/* ===================== QTY CONTROL ===================== */
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty-control button {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  background: #e8ecf0;
+  border: 1.5px solid #cfd8dc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #455a64;
+}
+
+.qty-control input {
+  width: 60px;
+  text-align: center;
+  font-size: 16px;
+  padding: 5px;
+}
+
+/* ===================== PRINTER STATUS ===================== */
+.printer-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f8fafb;
+  border-radius: 8px;
+  border: 1px solid #e8ecf0;
+}
+
+.led {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.led-green {
+  background: #4caf50;
+}
+
+.led-red {
+  background: #f44336;
+}
+
+/* ===================== SETTING LIST ===================== */
+.setting-list {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e8ecf0;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.setting-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #e0f2f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.setting-info {
+  flex: 1;
+}
+
+.setting-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #263238;
+  margin-bottom: 4px;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: #90a4ae;
+}
+
+.setting-arrow {
+  font-size: 24px;
+  color: #b0bec5;
+  margin-left: 8px;
+}
+
+/* ===================== TOGGLE SWITCH ===================== */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 26px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #00897b;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+/* ===================== INVENTORY SEARCH ===================== */
+#invSearch {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1.5px solid #e0e4e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #263238;
+  position: relative;
+  z-index: 5;
+}
+
+#invSearch:focus {
+  outline: none;
+  border-color: #00897b;
+  box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
+}
+
+/* ===================== FILTER ROW ===================== */
+.filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.filter-row input[type="date"] {
+  width: 135px;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+/* ===================== CHART CONTAINER ===================== */
+.chart-container {
+  margin: 12px 0;
+  background: #ffffff;
+  padding: 14px;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e8ecf0;
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 480px) {
+  .tab-btn {
+    font-size: 11px;
+    padding: 10px 4px;
+  }
+  .page {
+    padding: 12px;
+  }
+}
+</style>
   
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#009688">
