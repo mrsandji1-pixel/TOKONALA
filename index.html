@@ -2,9 +2,9 @@
 <html lang="id">
 <head>
 <script>
-// SMART CACHE CLEAR - v62
+// SMART CACHE CLEAR - v63
 (function() {
-  var currentVersion = 'v62';
+  var currentVersion = 'v63';
   var storedVersion = localStorage.getItem('appVersion');
   caches.keys().then(function(names) { names.forEach(function(name) { caches.delete(name); }); });
   navigator.serviceWorker.getRegistrations().then(function(regs) { regs.forEach(function(reg) { reg.unregister(); }); });
@@ -52,62 +52,30 @@
   </div>
 
   <!-- ================== TRANSAKSI ================== -->
-<div id="page-transaksi" class="page active">
-  <div id="lowStockBanner" style="display:none; background:#fff3e0; border:1px solid #ff9800; border-radius:8px; padding:10px; margin-bottom:12px; font-size:13px;">⚠️ <b>Stok Rendah:</b> <span id="lowStockBannerText"></span></div>
-  
-  <div class="form-group">
-    <label>Nama Customer (opsional)</label>
-    <div style="position:relative; width:100%;">
-      <input type="text" id="custName" placeholder="Nama Customer" maxlength="25" style="width:100%; padding:12px 40px 12px 14px; box-sizing:border-box; border:2px solid #e0e4e8; border-radius:8px; font-size:16px; height:48px;">
-      <button class="clear-btn" onclick="document.getElementById('custName').value=''" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:20px; color:#999; padding:4px 8px;">✕</button>
+  <div id="page-transaksi" class="page active">
+    <div id="lowStockBanner" style="display:none; background:#fff3e0; border:1px solid #ff9800; border-radius:8px; padding:10px; margin-bottom:12px; font-size:13px;">⚠️ <b>Stok Rendah:</b> <span id="lowStockBannerText"></span></div>
+    <div class="form-group"><label>Nama Customer (opsional)</label><div style="position:relative; display:inline-block; width:200px;"><input type="text" id="custName" placeholder="Nama Customer" maxlength="25" style="width:100%; padding-right:25px; box-sizing:border-box;"><button class="clear-btn" onclick="document.getElementById('custName').value=''" style="position:absolute; right:0; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; padding:0 5px;">✕</button></div></div>
+    <div class="form-group"><label>Cari Produk</label><div style="position:relative; display:inline-block; width:200px;"><input type="text" id="searchProduct" placeholder="Nama / Barcode..." oninput="searchProductFn(this.value)" onfocus="searchProductFn(this.value)" autocomplete="off" maxlength="25" style="width:100%; padding-right:25px; box-sizing:border-box;"><button class="clear-btn" onclick="var s=document.getElementById('searchProduct'); if(s)s.value=''; var sr=document.getElementById('searchResults'); if(sr)sr.style.display='none';" style="position:absolute; right:0; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; padding:0 5px;">✕</button></div><div class="search-results" id="searchResults" style="display:none;"></div></div>
+    
+    <div class="form-group">
+      <label>Scan Barcode</label>
+      <div style="display:flex; gap:4px; align-items:center;">
+        <input type="text" id="scanInputTrans" placeholder="Scan barcode..." autocomplete="off" style="flex:1; min-width:0;">
+        <button class="btn btn-sm" onclick="startCameraScanner()" title="Scan pakai kamera" style="padding:8px 10px; white-space:nowrap;">📷</button>
+        <button class="btn btn-sm" onclick="activateBluetoothScanner()" title="Scan pakai Bluetooth scanner" style="padding:8px 10px; white-space:nowrap;">🔵</button>
+      </div>
+      <div id="cameraScannerContainer" style="display:none;"></div>
+      <div id="bluetoothScannerStatus" style="display:none; margin-top:4px; font-size:12px; color:#00695c;"></div>
     </div>
-  </div>
-  
-  <div class="form-group">
-    <label>Cari Produk</label>
-    <div style="position:relative; width:100%;">
-      <input type="text" id="searchProduct" placeholder="Nama / Barcode..." autocomplete="off" maxlength="25" style="width:100%; padding:12px 40px 12px 14px; box-sizing:border-box; border:2px solid #00897b; border-radius:8px; font-size:16px; background:white; color:#263238; height:48px; -webkit-appearance:none;">
-      <button class="clear-btn" onclick="var s=document.getElementById('searchProduct'); if(s){s.value='';s.focus();} var sr=document.getElementById('searchResults'); if(sr){sr.style.display='none';sr.innerHTML='';}" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:20px; color:#999; padding:4px 8px; z-index:20;">✕</button>
-    </div>
-    <div class="search-results" id="searchResults" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; width:100%; background:white; border:1.5px solid #e0e4e8; border-radius:8px; max-height:280px; overflow-y:auto; z-index:1000; box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>
-  </div>
-  
-  <div class="form-group">
-    <label>Scan Barcode</label>
-    <div style="display:flex; gap:4px; align-items:center;">
-      <input type="text" id="scanInputTrans" placeholder="Scan barcode..." autocomplete="off" style="flex:1; min-width:0; padding:12px 14px; border:2px solid #e0e4e8; border-radius:8px; font-size:16px; height:48px;">
-      <button class="btn btn-sm" onclick="startCameraScanner()" title="Scan pakai kamera" style="padding:8px 12px; white-space:nowrap; height:48px;">📷</button>
-      <button class="btn btn-sm" onclick="activateBluetoothScanner()" title="Scan pakai Bluetooth scanner" style="padding:8px 12px; white-space:nowrap; height:48px;">🔵</button>
-    </div>
-    <div id="cameraScannerContainer" style="display:none;"></div>
-    <div id="bluetoothScannerStatus" style="display:none; margin-top:4px; font-size:12px; color:#00695c;"></div>
-  </div>
 
-  <table class="cart-table" id="cartTable">
-    <thead>
-      <tr>
-        <th>Produk</th>
-        <th>Harga</th>
-        <th>Qty</th>
-        <th>Subtotal</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  
-  <div id="pesananButtonsContainer" style="display:flex; gap:8px; margin-top:8px;"></div>
-  
-  <button class="btn btn-sm" onclick="bukaPopupVoucher()" id="btnVoucherTransaksi" style="background:#8e24aa;color:white;margin-top:8px;display:none;">🎟️ Voucher</button>
-  
-  <button class="btn" onclick="bayarDanCetak()" style="font-size:16px; padding:12px 24px; margin-top:8px; width:100%;">💳 BAYAR & CETAK</button>
-  
-  <div id="strukStatusTrans" class="printer-status" style="margin-top:8px;">
-    <span class="led led-red" id="ledStrukTrans"></span>
-    <span id="strukStatusTextTrans">Printer struk tidak terhubung</span>
-    <button class="btn btn-sm btn-danger" id="btnPutusStrukTrans" onclick="putusPrinterStruk()" style="display:none;">Putus</button>
+    <table class="cart-table" id="cartTable"><thead><tr><th>Produk</th><th>Harga</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody></tbody></table>
+    <div id="pesananButtonsContainer" style="display:flex; gap:8px; margin-top:8px;"></div>
+    
+    <button class="btn btn-sm" onclick="bukaPopupVoucher()" id="btnVoucherTransaksi" style="background:#8e24aa;color:white;margin-top:8px;display:none;">🎟️ Voucher</button>
+    
+    <button class="btn" onclick="bayarDanCetak()" style="font-size:16px; padding:12px 24px; margin-top:8px;">💳 BAYAR & CETAK</button>
+    <div id="strukStatusTrans" class="printer-status" style="margin-top:8px;"><span class="led led-red" id="ledStrukTrans"></span><span id="strukStatusTextTrans">Printer struk tidak terhubung</span><button class="btn btn-sm btn-danger" id="btnPutusStrukTrans" onclick="putusPrinterStruk()" style="display:none;">Putus</button></div>
   </div>
-</div>
 
   <!-- ================== INVENTORY ================== -->
   <div id="page-inventory" class="page">
@@ -169,9 +137,7 @@
 <div id="page-setting" class="page">
   <h3 style="margin-bottom: 16px;">⚙️ Pengaturan</h3>
   
-  <!-- Dropdown List -->
   <div class="setting-list">
-    <!-- Manajemen Profil -->
     <div class="setting-item" onclick="bukaPopupSetting('profil')" id="settingItemProfil">
       <div class="setting-icon">👤</div>
       <div class="setting-info">
@@ -181,7 +147,6 @@
       <div class="setting-arrow">›</div>
     </div>
     
-    <!-- Fitur Tersedia -->
     <div class="setting-item" onclick="bukaPopupSetting('fitur')" id="settingItemFitur">
       <div class="setting-icon">🔧</div>
       <div class="setting-info">
@@ -191,7 +156,6 @@
       <div class="setting-arrow">›</div>
     </div>
     
-    <!-- Manajemen Laporan -->
     <div class="setting-item" onclick="bukaPopupSetting('laporan')" id="settingItemLaporan">
       <div class="setting-icon">📊</div>
       <div class="setting-info">
@@ -201,7 +165,6 @@
       <div class="setting-arrow">›</div>
     </div>
     
-    <!-- Manajemen Cetak -->
     <div class="setting-item" onclick="bukaPopupSetting('cetak')" id="settingItemCetak">
       <div class="setting-icon">🖨️</div>
       <div class="setting-info">
@@ -211,7 +174,6 @@
       <div class="setting-arrow">›</div>
     </div>
     
-    <!-- Manajemen User -->
     <div class="setting-item" onclick="bukaPopupSetting('user')" id="settingItemUser">
       <div class="setting-icon">👥</div>
       <div class="setting-info">
@@ -221,7 +183,6 @@
       <div class="setting-arrow">›</div>
     </div>
     
-    <!-- Manajemen Data -->
     <div class="setting-item" onclick="bukaPopupSetting('data')" id="settingItemData">
       <div class="setting-icon">💾</div>
       <div class="setting-info">
@@ -379,7 +340,6 @@
       <button class="close-modal" onclick="tutupPopupSetting('cetak')">✕</button>
     </div>
     <div class="modal-body">
-      <!-- Dropdown List for Printer Selection -->
       <div class="setting-list" style="margin-bottom: 16px;">
         <!-- Printer Struk -->
         <div class="setting-item" onclick="toggleSubMenu('printerStruk')" id="menuPrinterStruk">
@@ -394,9 +354,7 @@
         <!-- Sub-menu Printer Struk -->
         <div id="subPrinterStruk" style="display:none; background:#f8fafb; padding:16px; border-bottom:1px solid #f0f0f0;">
           <div class="form-group">
-            <label>Printer Struk 
-              <button class="info-btn" onclick="alert('Untuk printer Bluetooth:\n1. Nyalakan printer dan pastikan dalam mode pairing.\n2. Buka Pengaturan Android > Bluetooth > pindai dan pasangkan dengan printer.\n3. Setelah terhubung, pilih "Bluetooth Printer" di dropdown.\n4. Saat mencetak, Android akan menanyakan printer tujuan.\n\nUntuk printer USB:\n1. Colokkan kabel OTG ke tablet.\n2. Sambungkan printer.\n3. Pilih "USB Printer".')">ℹ️</button>
-            </label>
+            <label>Printer Struk</label>
             <div style="display:flex; gap:4px;">
               <select id="printerPilihan" style="flex:1;">
                 <option value="default">Default</option>
@@ -457,11 +415,11 @@
           <div class="setting-arrow" id="arrowPrinterLabel">▼</div>
         </div>
         
-        <!-- Sub-menu Printer Label -->
+        <!-- Sub-menu Printer Label - FIXED: Renamed IDs to avoid conflict -->
         <div id="subPrinterLabel" style="display:none; background:#f8fafb; padding:16px;">
           <div class="form-group" style="margin-bottom:12px;">
             <label>Model Printer Label</label>
-            <select id="labelPrinterModel">
+            <select id="labelPrinterModelSetting">
               <option value="AD240">Aiyin AD240-BT</option>
               <option value="MP234">Aiyin MP234</option>
               <option value="PUTIAN80L">Putian 80L</option>
@@ -471,21 +429,21 @@
           <div style="display:flex; gap:8px;">
             <div class="form-group" style="flex:1;">
               <label>Lebar Label (mm)</label>
-              <input type="number" id="labelWidthMM" value="33" min="0" step="0.5">
+              <input type="number" id="labelWidthMMSetting" value="33" min="0" step="0.5">
             </div>
             <div class="form-group" style="flex:1;">
               <label>Tinggi Label (mm)</label>
-              <input type="number" id="labelHeightMM" value="15" min="0" step="0.5">
+              <input type="number" id="labelHeightMMSetting" value="15" min="0" step="0.5">
             </div>
           </div>
           <div style="display:flex; gap:8px;">
             <div class="form-group" style="flex:1;">
               <label>Jarak Kolom (mm)</label>
-              <input type="number" id="labelGapMM" value="2" min="0" step="0.5">
+              <input type="number" id="labelGapMMSetting" value="2" min="0" step="0.5">
             </div>
             <div class="form-group" style="flex:1;">
               <label>Jumlah Kolom</label>
-              <select id="labelCols" onchange="hitungJumlahCetak()">
+              <select id="labelColsSetting" onchange="hitungJumlahCetakSetting()">
                 <option value="1">1 Kolom</option>
                 <option value="2" selected>2 Kolom</option>
               </select>
@@ -494,7 +452,7 @@
           <div style="display:flex; gap:8px;">
             <div class="form-group" style="flex:1;">
               <label>Orientasi Cetak</label>
-              <select id="labelDirection">
+              <select id="labelDirectionSetting">
                 <option value="0">Normal</option>
                 <option value="1">Rotasi 180°</option>
               </select>
@@ -504,65 +462,16 @@
           <div style="display:flex; gap:8px;">
             <div class="form-group" style="flex:1;">
               <label>Offset X (mm)</label>
-              <input type="number" id="labelOffsetX" value="20" step="0.5">
+              <input type="number" id="labelOffsetXSetting" value="20" step="0.5">
               <small>+ kanan, - kiri</small>
             </div>
             <div class="form-group" style="flex:1;">
               <label>Offset Y (mm)</label>
-              <input type="number" id="labelOffsetY" value="0" step="0.5">
+              <input type="number" id="labelOffsetYSetting" value="0" step="0.5">
               <small>+ bawah, - atas</small>
             </div>
           </div>
-          <div style="display:flex; gap:8px;">
-            <div class="form-group" style="flex:1;">
-              <label>Jumlah Label (pcs)</label>
-              <input type="number" id="labelQty" value="10" min="0" onchange="hitungJumlahCetak()">
-            </div>
-            <div class="form-group" style="flex:1;">
-              <label>Jumlah Cetak</label>
-              <input type="number" id="labelPrintCount" value="0" readonly style="background:#e8f5e9; font-weight:bold;">
-              <small style="color:#00695c;">Label / kolom = cetak</small>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Konten</label>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <label><input type="checkbox" id="showNama" checked> Nama</label>
-              <label><input type="checkbox" id="showHarga" checked> Harga</label>
-              <label><input type="checkbox" id="showBarcode" checked> Barcode</label>
-              <label><input type="checkbox" id="showDate"> Tanggal</label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Status Printer Label</label>
-            <div id="labelPrinterStatusMsg" class="printer-status" style="margin-bottom:12px; padding:8px 12px;">
-              <span id="labelStatusLed" class="led led-red"></span>
-              <span id="labelStatusText">Label printer tidak terhubung</span>
-              <button class="btn btn-sm" onclick="sambungPrinterLabel()" style="margin-left:8px;">🔗 Sambung</button>
-              <button class="btn btn-sm btn-danger" onclick="putusPrinterLabel()">Putus</button>
-            </div>
-          </div>
-          <div style="display:flex; gap:8px; margin-top:4px; align-items:center;">
-            <div class="form-group" style="flex:1; margin:0;">
-              <input type="text" id="presetName" placeholder="Nama template..." style="padding:8px;">
-            </div>
-            <button class="btn btn-sm" onclick="simpanLabelSettings()" style="white-space:nowrap;">💾 Simpan</button>
-          </div>
-          <button class="btn btn-sm btn-danger" onclick="resetLabelSettings()" style="width:100%; margin-top:4px;">🔄 Reset ke Default</button>
-          <div class="form-group" style="margin-top:8px;">
-            <label>Template Tersimpan</label>
-            <div style="display:flex; gap:8px;">
-              <select id="presetList" style="flex:1;">
-                <option value="">-- Pilih template --</option>
-              </select>
-              <button class="btn btn-sm" onclick="muatLabelPreset()" style="white-space:nowrap;">📂 Muat</button>
-            </div>
-            <button class="btn btn-sm btn-danger" onclick="hapusLabelPreset()" style="margin-top:4px;">🗑 Hapus Template</button>
-          </div>
-          <div style="display:flex; gap:8px; margin-top:8px;">
-            <button class="btn" onclick="cetakLabelPDF()" style="flex:1; background:#2196f3;">📄 PDF</button>
-            <button class="btn" id="btnPrintLabelDirect" onclick="cetakLabelDariDialog()" style="flex:1; background:#ff9800; color:white; font-size:16px;">🖨️ Cetak Label</button>
-          </div>
+          <button class="btn" onclick="simpanPengaturanCetak()">💾 Simpan Pengaturan Cetak</button>
         </div>
       </div>
     </div>
@@ -644,11 +553,11 @@
 <!-- Modal Pesanan Tersimpan -->
 <div id="pesananModal" class="overlay" style="display:none;"><div class="modal-content" style="max-width:500px;"><h3>📋 Pesanan Tersimpan</h3><div id="pesananList" style="max-height:400px; overflow-y:auto;"></div><button class="btn btn-danger" onclick="document.getElementById('pesananModal').style.display='none'">Tutup</button></div></div>
 
-<!-- Modal Label Printer Settings -->
+<!-- Modal Label Printer Settings - FIXED: Keep original IDs here for inventory.js compatibility -->
 <div id="labelPrintModal" class="overlay" style="display:none;">
   <div class="modal-content" style="max-width:500px; max-height:90vh; overflow-y:auto;">
     <h3>🏷️ Manajemen Label</h3>
-    <div id="labelPrinterStatusMsg" class="printer-status" style="margin-bottom:12px; padding:8px 12px;"><span id="labelStatusLed" class="led led-red"></span><span id="labelStatusText">Label printer tidak terhubung</span><button class="btn btn-sm" onclick="sambungPrinterLabel()" style="margin-left:8px;">🔗 Sambung</button><button class="btn btn-sm btn-danger" onclick="putusPrinterLabel()">Putus</button></div>
+    <div id="labelPrinterStatusMsgModal" class="printer-status" style="margin-bottom:12px; padding:8px 12px;"><span id="labelStatusLedModal" class="led led-red"></span><span id="labelStatusTextModal">Label printer tidak terhubung</span><button class="btn btn-sm" onclick="sambungPrinterLabel()" style="margin-left:8px;">🔗 Sambung</button><button class="btn btn-sm btn-danger" onclick="putusPrinterLabel()">Putus</button></div>
     <div class="form-group" style="margin-bottom:12px;"><label>Model Printer Label</label>
 <select id="labelPrinterModel">
   <option value="AD240">Aiyin AD240-BT</option>
@@ -670,34 +579,34 @@
   </div>
 </div>
 
-<script src="js/supabase-config.js?v=62"></script>
-<script src="js/auth.js?v=62"></script>
-<script src="js/offline.js?v=62"></script>
-<script src="js/fitur-loader.js?v=62"></script>
-<script src="js/fitur-utang.js?v=62"></script>
-<script src="js/fitur-opname.js?v=62"></script>
-<script src="js/fitur-biaya.js?v=62"></script>
-<script src="js/fitur-multiuser.js?v=62"></script>
-<script src="js/fitur-emailstruk.js?v=62"></script>
-<script src="js/fitur-whatsapp.js?v=62"></script>
-<script src="js/fitur-share.js?v=62"></script>
-<script src="js/fitur-voucher.js?v=62"></script>
-<script src="js/fitur-diskon.js?v=62"></script>
-<script src="js/fitur-tax.js?v=62"></script>
-<script src="js/fitur-pesanan.js?v=50"></script>
-<script src="js/fitur-payment.js?v=64"></script>
-<script src="js/printer-struk.js?v=62"></script>
-<script src="js/printer-label-ad240.js?v=62"></script>
-<script src="js/printer-label-mp234.js?v=62"></script>
-<script src="js/printer-label-putian80l.js?v=62"></script>
-<script src="js/printer-label-putian80dl.js?v=62"></script>
-<script src="js/printer-label.js?v=62"></script>
-<script src="js/camera-scanner.js?v=62"></script>
-<script src="js/transaksi.js?v=62"></script>
-<script src="js/inventory.js?v=62"></script>
-<script src="js/laporan.js?v=62"></script>
-<script src="js/setting.js?v=62"></script>
-<script src="js/app.js?v=62"></script>
+<script src="js/supabase-config.js?v=63"></script>
+<script src="js/auth.js?v=63"></script>
+<script src="js/offline.js?v=63"></script>
+<script src="js/fitur-loader.js?v=63"></script>
+<script src="js/fitur-utang.js?v=63"></script>
+<script src="js/fitur-opname.js?v=63"></script>
+<script src="js/fitur-biaya.js?v=63"></script>
+<script src="js/fitur-multiuser.js?v=63"></script>
+<script src="js/fitur-emailstruk.js?v=63"></script>
+<script src="js/fitur-whatsapp.js?v=63"></script>
+<script src="js/fitur-share.js?v=63"></script>
+<script src="js/fitur-voucher.js?v=63"></script>
+<script src="js/fitur-diskon.js?v=63"></script>
+<script src="js/fitur-tax.js?v=63"></script>
+<script src="js/fitur-pesanan.js?v=63"></script>
+<script src="js/fitur-payment.js?v=63"></script>
+<script src="js/printer-struk.js?v=63"></script>
+<script src="js/printer-label-ad240.js?v=63"></script>
+<script src="js/printer-label-mp234.js?v=63"></script>
+<script src="js/printer-label-putian80l.js?v=63"></script>
+<script src="js/printer-label-putian80dl.js?v=63"></script>
+<script src="js/printer-label.js?v=63"></script>
+<script src="js/camera-scanner.js?v=63"></script>
+<script src="js/transaksi.js?v=63"></script>
+<script src="js/inventory.js?v=63"></script>
+<script src="js/laporan.js?v=63"></script>
+<script src="js/setting.js?v=63"></script>
+<script src="js/app.js?v=63"></script>
 
 <!-- Session Tracking -->
 <script>
