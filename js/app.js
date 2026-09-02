@@ -1,14 +1,12 @@
-// ===================== APP.JS - FIXED v2 =====================
+// ===================== APP.JS - FINAL =====================
 
-// FIX: Pastikan login overlay berada di body level
 document.addEventListener('DOMContentLoaded', function() {
   var loginOverlay = document.getElementById('loginOverlay');
   if (loginOverlay && loginOverlay.parentElement !== document.body) {
     document.body.appendChild(loginOverlay);
-    console.log('Login overlay dipindahkan ke body (auto-fix)');
+    console.log('Login overlay dipindahkan ke body');
   }
   
-  // FIX: Pastikan semua modal juga di body level
   var modals = document.querySelectorAll('.overlay, .setting-modal');
   modals.forEach(function(modal) {
     if (modal.parentElement !== document.body) {
@@ -16,7 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // FIX: Pindahkan semua modal penting ke body
   var modalIds = ['editUserModal', 'productDetailModal', 'pesananModal', 'labelPrintModal'];
   modalIds.forEach(function(id) {
     var modal = document.getElementById(id);
@@ -41,6 +38,11 @@ document.querySelectorAll('.tab-btn').forEach(b => {
     if (!currentUser) return;
     if (!b.dataset.page) return;
     
+    // Cegah non-admin akses fitur
+    if (b.dataset.page === 'fitur' && currentUser.role !== 'admin') {
+      return;
+    }
+    
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
     
@@ -64,21 +66,6 @@ document.querySelectorAll('.tab-btn').forEach(b => {
     if (activeTab === 'fitur') { 
       if (typeof setupFiturPage === 'function') setupFiturPage(); 
     }
-    if (activeTab === 'utang') { 
-      if (typeof setupUtang === 'function') setupUtang(); 
-    }
-    if (activeTab === 'opname') { 
-      if (typeof setupOpname === 'function') setupOpname(); 
-    }
-    if (activeTab === 'biaya') { 
-      if (typeof setupBiaya === 'function') setupBiaya(); 
-    }
-    if (activeTab === 'multiuser') { 
-      if (typeof setupMultiUser === 'function') setupMultiUser(); 
-    }
-    if (activeTab === 'emailstruk') { 
-      if (typeof setupEmailStruk === 'function') setupEmailStruk(); 
-    }
     if (activeTab === 'inventory') {
       if (typeof refreshProductList === 'function') refreshProductList();
     }
@@ -93,13 +80,11 @@ document.querySelectorAll('.tab-btn').forEach(b => {
 });
 
 function initApp() {
-  // FIX: Pindahkan login overlay ke body sebelum checkSession
   var loginOverlay = document.getElementById('loginOverlay');
   if (loginOverlay && loginOverlay.parentElement !== document.body) {
     document.body.appendChild(loginOverlay);
   }
   
-  // Pindahkan modal penting ke body
   var modalIds = ['editUserModal', 'productDetailModal', 'pesananModal', 'labelPrintModal'];
   modalIds.forEach(function(id) {
     var modal = document.getElementById(id);

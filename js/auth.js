@@ -1,4 +1,4 @@
-// ===================== AUTH.JS - FIXED =====================
+// ===================== AUTH.JS - FINAL v4 =====================
 
 var SALT_PREFIX = 'RDNPS_';
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -290,7 +290,7 @@ function applyRoleRestrictions() {
   if(tL)tL.style.display='';
   if(tS)tS.style.display='';
   
-  // FIX: Sembunyikan tab Fitur untuk non-admin
+  // Sembunyikan tab Fitur untuk non-admin
   if(tF)tF.style.display = isAdmin ? '' : 'none';
   
   // Jika user non-admin sedang di halaman fitur, pindahkan ke transaksi
@@ -346,10 +346,17 @@ function startSessionTracking() {
   if (!currentUser || !currentUser.username) return;
   if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
   
+  // Hapus interval lama
+  if (sessionPingInterval) {
+    clearInterval(sessionPingInterval);
+    sessionPingInterval = null;
+  }
+  
   var uname = currentUser.username;
   var device = getDeviceInfo();
   var now = new Date().toISOString();
   
+  // Hapus session lama dan insert baru
   supabaseClient.from('active_sessions').delete().eq('username', uname).then(function() {
     supabaseClient.from('active_sessions').insert({
       username: uname,
@@ -363,13 +370,22 @@ function startSessionTracking() {
     });
   });
   
-  if (sessionPingInterval) clearInterval(sessionPingInterval);
+  // Buat interval baru - ping setiap 10 detik
   sessionPingInterval = setInterval(function() {
+    if (!currentUser || !currentUser.username) {
+      clearInterval(sessionPingInterval);
+      sessionPingInterval = null;
+      return;
+    }
+    
+    var pingTime = new Date().toISOString();
     supabaseClient.from('active_sessions').update({
-      last_ping: new Date().toISOString(),
+      last_ping: pingTime,
       is_active: true
-    }).eq('username', uname);
-  }, 30000);
+    }).eq('username', currentUser.username);
+  }, 10000);
+  
+  console.log('Session tracking dimulai. Interval ID:', sessionPingInterval);
 }
 
 function getDeviceInfo() {
@@ -394,6 +410,7 @@ function stopSessionTracking() {
   if (sessionPingInterval) {
     clearInterval(sessionPingInterval);
     sessionPingInterval = null;
+    console.log('Session tracking dihentikan');
   }
   
   if (currentUser && currentUser.username) {
@@ -411,6 +428,7 @@ async function refreshSessions() {
   try {
     var result = await supabaseClient.from('active_sessions')
       .select('*')
+      .eq('is_active', true)
       .order('last_ping', { ascending: false });
     
     var sessions = result.data || [];
@@ -418,19 +436,21 @@ async function refreshSessions() {
     if (!tbody) return;
     tbody.innerHTML = '';
     
+    var now = new Date();
+    
     if (sessions.length === 0) {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tidak ada sesi aktif</td></tr>';
       return;
     }
     
     sessions.forEach(function(s) {
-      var now = new Date();
       var ping = new Date(s.last_ping);
       var diffMin = Math.floor((now - ping) / 60000);
       var status, statusColor;
       
-      if (diffMin < 1 && s.is_active) { status = '🟢 Online'; statusColor = '#2e7d32'; }
-      else if (diffMin < 5 && s.is_active) { status = '🟡 Idle'; statusColor = '#f57f17'; }
+      // 2 menit = Online, 5 menit = Idle
+      if (diffMin < 2) { status = '🟢 Online'; statusColor = '#2e7d32'; }
+      else if (diffMin < 5) { status = '🟡 Idle'; statusColor = '#f57f17'; }
       else { status = '🔴 Offline'; statusColor = '#c62828'; }
       
       var row = tbody.insertRow();
