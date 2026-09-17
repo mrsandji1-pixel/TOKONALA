@@ -1,4 +1,4 @@
-// ===================== FITUR PAPAN PESAN =====================
+// ===================== FITUR PAPAN PESAN - FINAL =====================
 var currentBoardTab = 'umum';
 var currentBoardPage = 1;
 var boardPageSize = 20;
@@ -184,9 +184,6 @@ function renderPostCard(p) {
 
 async function filterBoardPosts() {
   var filter = document.getElementById('boardFilter').value;
-  var content = document.getElementById('boardContent');
-  if (!content) return;
-  
   var posts = await loadBoardPosts(filter);
   var listEl = document.getElementById('boardPostsList');
   if (!listEl) return;
@@ -401,7 +398,7 @@ function renderPesanCard(m, mode) {
   var unreadDot = (!m.is_read && mode === 'inbox') ? '🔴 ' : '';
   var priorityBadge = m.priority !== 'normal' ? ' <span style="background:' + priorityColor[m.priority] + ';color:white;padding:2px 6px;border-radius:4px;font-size:10px;">' + m.priority.toUpperCase() + '</span>' : '';
   
-  var html = '<div style="border-radius:8px;padding:12px;margin-bottom:8px;' + unreadStyle + 'box-shadow:0 1px 3px rgba(0,0,0,0.08);" onclick="bukaPesan(' + m.id + ',\'' + mode + '\')">';
+  var html = '<div style="border-radius:8px;padding:12px;margin-bottom:8px;' + unreadStyle + 'box-shadow:0 1px 3px rgba(0,0,0,0.08);cursor:pointer;" onclick="bukaPesan(' + m.id + ',\'' + mode + '\')">';
   html += '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">';
   html += '<div style="flex:1;">';
   html += '<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">' + unreadDot + escapeHtml(m.subject) + priorityBadge + '</div>';
@@ -431,11 +428,16 @@ async function bukaPesan(id, mode) {
       is_read: true,
       read_at: new Date().toISOString()
     }).eq('id', id);
+    
+    // Update badge
+    if (typeof updateUnreadBadge === 'function') {
+      setTimeout(updateUnreadBadge, 500);
+    }
   }
   
   var modal = document.createElement('div');
   modal.id = 'readPesanModal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
   
   var html = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:500px;max-height:90vh;overflow-y:auto;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
@@ -506,7 +508,7 @@ async function formKirimPesan() {
   
   var modal = document.createElement('div');
   modal.id = 'kirimPesanModal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
   
   var html = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:500px;max-height:90vh;overflow-y:auto;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
@@ -620,20 +622,80 @@ function formatTanggal(dateStr) {
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ===================== TOMBOL PAPAN PESAN CEPAT =====================
+function bukaPapanPesanCepat() {
+  var modal = document.createElement('div');
+  modal.id = 'papanPesanCepatModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  
+  modal.innerHTML = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:700px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+    '<h3 style="margin:0;">📢 Papan Pesan</h3>' +
+    '<button class="btn btn-danger btn-sm" onclick="document.getElementById(\'papanPesanCepatModal\').remove()">✕ Tutup</button>' +
+    '</div>' +
+    '<div id="papanPesanCepatContent" style="flex:1;overflow-y:auto;"></div>' +
+    '</div>';
+  
+  document.body.appendChild(modal);
+  
+  setupModal_papanpesan('papanPesanCepatContent');
+}
+
+// ===================== VISIBILITY TOMBOL PAPAN PESAN =====================
+function updatePapanPesanButtonVisibility() {
+  var btn = document.getElementById('btnPapanPesan');
+  if (!btn) return;
+  
+  // Cek apakah fitur papanpesan aktif
+  var isActive = typeof activeFeatures !== 'undefined' && activeFeatures && activeFeatures.papanpesan;
+  
+  if (currentUser && isActive) {
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    updateUnreadBadge();
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
 // ===================== BADGE NOTIFIKASI =====================
 async function updateUnreadBadge() {
-  if (!currentUser) return;
-  var unread = await countUnreadMessages(currentUser.username);
-  var badge = document.getElementById('unreadBadge');
-  if (badge) {
-    if (unread > 0) {
-      badge.textContent = unread;
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
+  if (!currentUser || !currentUser.username) return;
+  
+  var btn = document.getElementById('btnPapanPesan');
+  if (!btn) return;
+  
+  // Cek apakah fitur papanpesan aktif
+  var isActive = typeof activeFeatures !== 'undefined' && activeFeatures && activeFeatures.papanpesan;
+  if (!isActive) {
+    btn.style.display = 'none';
+    return;
+  }
+  
+  btn.style.display = 'inline-flex';
+  btn.style.alignItems = 'center';
+  btn.style.justifyContent = 'center';
+  
+  try {
+    var unread = await countUnreadMessages(currentUser.username);
+    var badge = document.getElementById('unreadBadge');
+    if (badge) {
+      if (unread > 0) {
+        badge.textContent = unread > 99 ? '99+' : unread;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
     }
+  } catch(e) {
+    console.error('Badge update error:', e);
   }
 }
 
 // Auto-update badge setiap 30 detik
-setInterval(updateUnreadBadge, 30000);
+setInterval(function() {
+  if (currentUser && currentUser.username) {
+    updateUnreadBadge();
+  }
+}, 30000);

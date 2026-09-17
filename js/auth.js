@@ -1,4 +1,4 @@
-// ===================== AUTH.JS - WITH MESSAGE BADGE =====================
+// ===================== AUTH.JS - FINAL v5 =====================
 
 var SALT_PREFIX = 'RDNPS_';
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -126,9 +126,12 @@ async function login() {
 
     startSessionTracking();
     
-    // Update badge pesan
+    // Update badge pesan papan pesan
     if (typeof updateUnreadBadge === 'function') {
       setTimeout(updateUnreadBadge, 1500);
+    }
+    if (typeof updatePapanPesanButtonVisibility === 'function') {
+      setTimeout(updatePapanPesanButtonVisibility, 1500);
     }
 
   } catch(err) {
@@ -191,9 +194,12 @@ function checkSession() {
 
     startSessionTracking();
     
-    // Update badge pesan
+    // Update badge pesan papan pesan
     if (typeof updateUnreadBadge === 'function') {
       setTimeout(updateUnreadBadge, 1500);
+    }
+    if (typeof updatePapanPesanButtonVisibility === 'function') {
+      setTimeout(updatePapanPesanButtonVisibility, 1500);
     }
 
     return true;
@@ -234,9 +240,11 @@ function logout() {
   var d=document.getElementById('activeUserDisplay');if(d)d.textContent='-';
   var r=document.getElementById('activeUserRole');if(r)r.textContent='-';
   
-  // Reset badge pesan
+  // Reset badge pesan papan pesan
   var badge = document.getElementById('unreadBadge');
   if (badge) badge.style.display = 'none';
+  var msgBtn = document.getElementById('btnPapanPesan');
+  if (msgBtn) msgBtn.style.display = 'none';
   
   document.querySelectorAll('.tab-btn').forEach(function(b){b.style.display='';});
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -347,6 +355,11 @@ function applyRoleRestrictions() {
   // Update badge notifikasi papan pesan
   if (typeof updateUnreadBadge === 'function') {
     setTimeout(updateUnreadBadge, 500);
+  }
+  
+  // Update visibility tombol papan pesan
+  if (typeof updatePapanPesanButtonVisibility === 'function') {
+    setTimeout(updatePapanPesanButtonVisibility, 500);
   }
 }
 

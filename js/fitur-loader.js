@@ -1,4 +1,4 @@
-// ===================== FITUR LOADER - WITH PAPAN PESAN =====================
+// ===================== FITUR LOADER - FINAL =====================
 var activeFeatures = {};
 
 async function loadFeatures() {
@@ -15,6 +15,11 @@ async function loadFeatures() {
   updateVoucherButtonVisibility();
   updateLabelButtonVisibility();
   updateGrosirVisibility();
+  
+  // Update visibility tombol papan pesan
+  if (typeof updatePapanPesanButtonVisibility === 'function') {
+    updatePapanPesanButtonVisibility();
+  }
 }
 
 function setupFiturPage() {
@@ -209,6 +214,12 @@ async function simpanFitur() {
   updateVoucherButtonVisibility();
   updateLabelButtonVisibility();
   updateGrosirVisibility();
+  
+  // Update visibility tombol papan pesan
+  if (typeof updatePapanPesanButtonVisibility === 'function') {
+    updatePapanPesanButtonVisibility();
+  }
+  
   alert('✅ Fitur disimpan!');
 }
 
