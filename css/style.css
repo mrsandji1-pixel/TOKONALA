@@ -825,3 +825,25 @@ input:disabled, select:disabled, textarea:disabled {
   border-color: #00897b;
   box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
 }
+/* ===================== MESSAGE BUTTON ===================== */
+.msg-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.msg-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.msg-btn:active {
+  transform: translateY(0);
+}
