@@ -1,4 +1,4 @@
-// ===================== AUTH.JS - FINAL v4 =====================
+// ===================== AUTH.JS - WITH MESSAGE BADGE =====================
 
 var SALT_PREFIX = 'RDNPS_';
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -125,6 +125,11 @@ async function login() {
     }
 
     startSessionTracking();
+    
+    // Update badge pesan
+    if (typeof updateUnreadBadge === 'function') {
+      setTimeout(updateUnreadBadge, 1500);
+    }
 
   } catch(err) {
     console.error('Login error:', err);
@@ -185,6 +190,11 @@ function checkSession() {
     }
 
     startSessionTracking();
+    
+    // Update badge pesan
+    if (typeof updateUnreadBadge === 'function') {
+      setTimeout(updateUnreadBadge, 1500);
+    }
 
     return true;
   }
@@ -223,6 +233,11 @@ function logout() {
   ['scanInputTrans','custName','invSearch','searchProduct','prodBarcode','prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','perubahanStok','bayar','newUsername','newPassword'].forEach(function(id){var i=document.getElementById(id);if(i)i.value='';});
   var d=document.getElementById('activeUserDisplay');if(d)d.textContent='-';
   var r=document.getElementById('activeUserRole');if(r)r.textContent='-';
+  
+  // Reset badge pesan
+  var badge = document.getElementById('unreadBadge');
+  if (badge) badge.style.display = 'none';
+  
   document.querySelectorAll('.tab-btn').forEach(function(b){b.style.display='';});
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.getElementById('page-transaksi').classList.add('active');
@@ -327,6 +342,11 @@ function applyRoleRestrictions() {
   var fiturSection = document.getElementById('fiturSection');
   if (fiturSection) {
     fiturSection.style.display = isAdmin ? 'block' : 'none';
+  }
+  
+  // Update badge notifikasi papan pesan
+  if (typeof updateUnreadBadge === 'function') {
+    setTimeout(updateUnreadBadge, 500);
   }
 }
 

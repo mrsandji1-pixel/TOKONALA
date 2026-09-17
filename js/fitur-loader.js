@@ -1,4 +1,4 @@
-// ===================== FITUR LOADER - FIXED VERSION =====================
+// ===================== FITUR LOADER - WITH PAPAN PESAN =====================
 var activeFeatures = {};
 
 async function loadFeatures() {
@@ -12,7 +12,6 @@ async function loadFeatures() {
   if (currentUser && currentUser.role === 'admin') {
     renderFiturToggles();
   }
-  // Update button visibility
   updateVoucherButtonVisibility();
   updateLabelButtonVisibility();
   updateGrosirVisibility();
@@ -27,6 +26,7 @@ function renderFiturCards() {
   if (!container) return;
   
   var features = [
+    { key: 'papanpesan', label: 'Papan Pesan', icon: '📢', desc: 'Komunikasi tim & pesan pribadi' },
     { key: 'utang', label: 'Customer Utang', icon: '💳', desc: 'Catat utang customer dan pembayaran' },
     { key: 'member', label: 'Customer Member', icon: '⭐', desc: 'Program loyalitas pelanggan' },
     { key: 'shift', label: 'Shift Karyawan', icon: '👥', desc: 'Kelola shift dan komisi' },
@@ -70,6 +70,7 @@ function renderFiturCards() {
 
 function bukaFitur(key) {
   var featureInfo = {
+    'papanpesan': { title: '📢 Papan Pesan', icon: '📢' },
     'utang': { title: '💳 Customer Utang', icon: '💳' },
     'member': { title: '⭐ Customer Member', icon: '⭐' },
     'shift': { title: '👥 Shift Karyawan', icon: '👥' },
@@ -107,12 +108,10 @@ function bukaFitur(key) {
   
   document.body.appendChild(modal);
   
-  // FIXED: Call setup function with underscore naming
   var setupFuncName = 'setupModal_' + key;
   if (typeof window[setupFuncName] === 'function') {
     window[setupFuncName](contentId);
   } else {
-    // Fallback: try without underscore
     var altFuncName = 'setup' + key.charAt(0).toUpperCase() + key.slice(1) + 'Modal';
     if (typeof window[altFuncName] === 'function') {
       window[altFuncName](contentId);
@@ -121,9 +120,6 @@ function bukaFitur(key) {
     }
   }
 }
-
-// FIXED: Removed all setupModal_* functions that were duplicated here
-// They are now handled by their respective feature files
 
 // ===================== FORM PENGATURAN GROSIR =====================
 function formPengaturanGrosir() {
@@ -164,6 +160,7 @@ function renderFiturToggles() {
   if (!container) return;
   
   var features = [
+    { key: 'papanpesan', label: '📢 Papan Pesan' },
     { key: 'utang', label: '💳 Customer Utang' },
     { key: 'member', label: '⭐ Customer Member' },
     { key: 'shift', label: '👥 Shift Karyawan' },
@@ -198,7 +195,7 @@ function renderFiturToggles() {
 }
 
 async function simpanFitur() {
-  var keys = ['utang','member','shift','supplier','biaya','opname','voucher','tax','diskon','grosir','pesanan','payment','multiuser','emailstruk','whatsapp','label'];
+  var keys = ['papanpesan','utang','member','shift','supplier','biaya','opname','voucher','tax','diskon','grosir','pesanan','payment','multiuser','emailstruk','whatsapp','label'];
   var features = {};
   
   keys.forEach(function(key) {
@@ -209,7 +206,6 @@ async function simpanFitur() {
   await updateSettings({ features: features });
   activeFeatures = features;
   renderFiturCards();
-  // Update button visibility
   updateVoucherButtonVisibility();
   updateLabelButtonVisibility();
   updateGrosirVisibility();
@@ -258,9 +254,8 @@ function updateGrosirVisibility() {
   }
 }
 
-// ===================== SETUP MODAL FUNCTIONS FOR FEATURES WITHOUT SEPARATE FILES =====================
+// ===================== SETUP MODAL FUNCTIONS =====================
 
-// Setup for features that only exist in fitur-loader.js
 async function setupModal_utang(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
@@ -397,6 +392,3 @@ async function setupModal_superadmin(containerId) {
     refreshSessions();
   }
 }
-
-// Note: setupModal_voucher, setupModal_tax, setupModal_diskon, setupModal_pesanan, setupModal_payment
-// are now defined in their respective feature files (fitur-voucher.js, fitur-tax.js, fitur-diskon.js, fitur-pesanan.js, fitur-payment.js)
