@@ -149,6 +149,23 @@ window.filterProductList = function() {
   }, 300);
 };
 
+// ===================== CLEAR SEARCH =====================
+function clearInvSearch() {
+  var invSearch = document.getElementById('invSearch');
+  if (invSearch) {
+    invSearch.value = '';
+    invSearch.focus();
+  }
+  
+  // Reset tampilan ke semua produk
+  var cached = getLocalProducts();
+  if (cached) {
+    totalProducts = cached.length;
+    productPage = 1;
+    renderProductTable(cached.slice(0, productPageSize));
+  }
+}
+
 // ===================== OPTIMISTIC DELETE =====================
 async function hapusProdukDariDaftar(b) {
   if (!currentUser || currentUser.role !== 'admin') return;
