@@ -2,9 +2,9 @@
 <html lang="id">
 <head>
 <script>
-// SMART CACHE CLEAR - v65
+// SMART CACHE CLEAR - v67
 (function() {
-  var currentVersion = 'v65';
+  var currentVersion = 'v67';
   var storedVersion = localStorage.getItem('appVersion');
   caches.keys().then(function(names) { names.forEach(function(name) { caches.delete(name); }); });
   navigator.serviceWorker.getRegistrations().then(function(regs) { regs.forEach(function(reg) { reg.unregister(); }); });
@@ -38,8 +38,8 @@
     <button class="tab-btn" data-page="laporan">Laporan</button>
     <button class="tab-btn" data-page="fitur">🔧 Fitur</button>
     <button class="tab-btn" data-page="setting">Setting</button>
-<button class="msg-btn" onclick="bukaPapanPesanCepat()" id="btnPapanPesan" style="display:none; position:relative;" title="Papan Pesan">📢<span id="unreadBadge" style="display:none; position:absolute; top:-4px; right:-4px; background:#e53935; color:white; border-radius:50%; font-size:9px; min-width:16px; height:16px; line-height:16px; text-align:center; padding:0 3px; font-weight:bold;">0</span></button>
-<button class="logout-btn" onclick="logout()">Logout</button>
+    <button class="msg-btn" onclick="bukaPapanPesanCepat()" id="btnPapanPesan" style="display:none; position:relative;" title="Papan Pesan">📢<span id="unreadBadge" style="display:none; position:absolute; top:-4px; right:-4px; background:#e53935; color:white; border-radius:50%; font-size:9px; min-width:16px; height:16px; line-height:16px; text-align:center; padding:0 3px; font-weight:bold;">0</span></button>
+    <button class="logout-btn" onclick="logout()">Logout</button>
   </div>
 
   <div style="background:#e0f2f1; padding:6px 16px; font-size:12px; color:#00695c; display:flex; justify-content:space-between; align-items:center;">
@@ -103,7 +103,10 @@
     <hr>
     <h3>Daftar Produk (<span id="productCount">0</span>)</h3>
     <div style="display:flex; gap:8px; margin-bottom:8px;">
-      <input type="text" id="invSearch" placeholder="Cari produk..." autocomplete="off" style="flex:1; padding:10px 14px; font-size:14px; border:1.5px solid #e0e4e8; border-radius:8px;">
+      <div style="position:relative; flex:1;">
+        <input type="text" id="invSearch" placeholder="Cari produk..." autocomplete="off" style="width:100%; padding:10px 35px 10px 14px; font-size:14px; border:1.5px solid #e0e4e8; border-radius:8px; box-sizing:border-box;">
+        <button onclick="clearInvSearch()" title="Hapus" style="position:absolute; right:5px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:18px; color:#e53935; padding:4px 8px; font-weight:bold;">✕</button>
+      </div>
       <button class="btn btn-sm" onclick="refreshProductList()" style="white-space:nowrap;">🔄 Refresh</button>
     </div>
     <div class="table-wrapper"><table class="product-table" id="productListTable"><thead><tr><th>Barcode</th><th>Nama</th><th>Kategori</th><th>Keterangan</th><th>Lokasi</th><th>Harga Jual</th><th>Stok</th><th id="thAksi">Aksi</th></tr></thead><tbody></tbody></table></div>
@@ -314,23 +317,23 @@
 </div>
 
 <!-- ================== SCRIPTS ================== -->
-<script src="js/supabase-config.js?v=66"></script>
-<script src="js/auth.js?v=66"></script>
-<script src="js/offline.js?v=66"></script>
-<script src="js/fitur-loader.js?v=66"></script>
-<script src="js/fitur-voucher.js?v=66"></script>
-<script src="js/fitur-diskon.js?v=66"></script>
-<script src="js/fitur-tax.js?v=66"></script>
-<script src="js/fitur-pesanan.js?v=66"></script>
-<script src="js/fitur-payment.js?v=66"></script>
-<script src="js/fitur-papan-pesan.js?v=66"></script>
-<script src="js/printer-struk.js?v=66"></script>
-<script src="js/camera-scanner.js?v=66"></script>
-<script src="js/transaksi.js?v=66"></script>
-<script src="js/inventory.js?v=66"></script>
-<script src="js/laporan.js?v=66"></script>
-<script src="js/setting.js?v=66"></script>
-<script src="js/app.js?v=66"></script>
+<script src="js/supabase-config.js?v=67"></script>
+<script src="js/auth.js?v=67"></script>
+<script src="js/offline.js?v=67"></script>
+<script src="js/fitur-loader.js?v=67"></script>
+<script src="js/fitur-voucher.js?v=67"></script>
+<script src="js/fitur-diskon.js?v=67"></script>
+<script src="js/fitur-tax.js?v=67"></script>
+<script src="js/fitur-pesanan.js?v=67"></script>
+<script src="js/fitur-payment.js?v=67"></script>
+<script src="js/fitur-papan-pesan.js?v=67"></script>
+<script src="js/printer-struk.js?v=67"></script>
+<script src="js/camera-scanner.js?v=67"></script>
+<script src="js/transaksi.js?v=67"></script>
+<script src="js/inventory.js?v=67"></script>
+<script src="js/laporan.js?v=67"></script>
+<script src="js/setting.js?v=67"></script>
+<script src="js/app.js?v=67"></script>
 
 </body>
 </html>
