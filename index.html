@@ -2,9 +2,9 @@
 <html lang="id">
 <head>
 <script>
-// SMART CACHE CLEAR - v67
+// SMART CACHE CLEAR - v68
 (function() {
-  var currentVersion = 'v67';
+  var currentVersion = 'v68';
   var storedVersion = localStorage.getItem('appVersion');
   caches.keys().then(function(names) { names.forEach(function(name) { caches.delete(name); }); });
   navigator.serviceWorker.getRegistrations().then(function(regs) { regs.forEach(function(reg) { reg.unregister(); }); });
@@ -49,8 +49,8 @@
   <!-- ================== PAGE TRANSAKSI ================== -->
   <div id="page-transaksi" class="page active">
     <div id="lowStockBanner" style="display:none; background:#fff3e0; border:1px solid #ff9800; border-radius:8px; padding:10px; margin-bottom:12px; font-size:13px;">⚠️ <b>Stok Rendah:</b> <span id="lowStockBannerText"></span></div>
-    <div class="form-group"><label>Nama Customer (opsional)</label><div style="position:relative; display:inline-block; width:200px;"><input type="text" id="custName" placeholder="Nama Customer" maxlength="25" style="width:100%; padding-right:25px; box-sizing:border-box;"><button class="clear-btn" onclick="document.getElementById('custName').value=''" style="position:absolute; right:0; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; padding:0 5px;">✕</button></div></div>
-    <div class="form-group"><label>Cari Produk</label><div style="position:relative; display:inline-block; width:200px;"><input type="text" id="searchProduct" placeholder="Nama / Barcode..." autocomplete="off" maxlength="25" style="width:100%; padding-right:25px; box-sizing:border-box;"><button class="clear-btn" onclick="var s=document.getElementById('searchProduct'); if(s)s.value=''; var sr=document.getElementById('searchResults'); if(sr)sr.style.display='none';" style="position:absolute; right:0; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; padding:0 5px;">✕</button></div><div class="search-results" id="searchResults" style="display:none;"></div></div>
+    <div class="form-group"><label>Nama Customer (opsional)</label><div style="position:relative; display:inline-block; width:200px;"><input type="text" id="custName" placeholder="Nama Customer" maxlength="25" style="width:100%; padding-right:25px; box-sizing:border-box;"><button class="clear-btn" onclick="document.getElementById('custName').value=''" style="position:absolute; right:0; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; padding:0 5px; z-index:10;">✕</button></div></div>
+    <div class="form-group"><label>Cari Produk</label><div style="position:relative; display:inline-block; width:200px;"><input type="text" id="searchProduct" placeholder="Nama / Barcode..." autocomplete="off" maxlength="25" style="width:100%; padding-right:25px; box-sizing:border-box;"><button class="clear-btn" onclick="var s=document.getElementById('searchProduct'); if(s)s.value=''; var sr=document.getElementById('searchResults'); if(sr)sr.style.display='none';" style="position:absolute; right:0; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; padding:0 5px; z-index:10;">✕</button></div><div class="search-results" id="searchResults" style="display:none;"></div></div>
     <div class="form-group">
       <label>Scan Barcode</label>
       <div style="display:flex; gap:4px; align-items:center;">
@@ -75,7 +75,7 @@
       <div style="display:flex; gap:4px; align-items:center;">
         <div style="position:relative; flex:1; min-width:0;">
           <input type="text" id="prodBarcode" placeholder="Scan barcode..." autocomplete="off" style="width:100%; padding-right:30px;">
-          <button class="clear-btn" onclick="clearBarcodeField()" style="position:absolute; right:2px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:16px; color:#e53935;">✕</button>
+          <button class="clear-btn" onclick="clearBarcodeField()" style="position:absolute; right:2px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:16px; color:#e53935; z-index:10;">✕</button>
         </div>
         <button class="btn btn-sm" onclick="startCameraScannerInv()" title="Scan pakai kamera" style="padding:8px 10px; white-space:nowrap;">📷</button>
         <button class="btn btn-sm" onclick="activateBluetoothScannerInv()" title="Scan pakai Bluetooth scanner" style="padding:8px 10px; white-space:nowrap;">🔵</button>
@@ -105,7 +105,7 @@
     <div style="display:flex; gap:8px; margin-bottom:8px;">
       <div style="position:relative; flex:1;">
         <input type="text" id="invSearch" placeholder="Cari produk..." autocomplete="off" style="width:100%; padding:10px 35px 10px 14px; font-size:14px; border:1.5px solid #e0e4e8; border-radius:8px; box-sizing:border-box;">
-        <button onclick="clearInvSearch()" title="Hapus" style="position:absolute; right:5px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:18px; color:#e53935; padding:4px 8px; font-weight:bold;">✕</button>
+        <button onclick="clearInvSearch()" title="Hapus" style="position:absolute; right:5px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:18px; color:#e53935; padding:4px 8px; font-weight:bold; z-index:10;">✕</button>
       </div>
       <button class="btn btn-sm" onclick="refreshProductList()" style="white-space:nowrap;">🔄 Refresh</button>
     </div>
@@ -317,23 +317,23 @@
 </div>
 
 <!-- ================== SCRIPTS ================== -->
-<script src="js/supabase-config.js?v=67"></script>
-<script src="js/auth.js?v=67"></script>
-<script src="js/offline.js?v=67"></script>
-<script src="js/fitur-loader.js?v=67"></script>
-<script src="js/fitur-voucher.js?v=67"></script>
-<script src="js/fitur-diskon.js?v=67"></script>
-<script src="js/fitur-tax.js?v=67"></script>
-<script src="js/fitur-pesanan.js?v=67"></script>
-<script src="js/fitur-payment.js?v=67"></script>
-<script src="js/fitur-papan-pesan.js?v=67"></script>
-<script src="js/printer-struk.js?v=67"></script>
-<script src="js/camera-scanner.js?v=67"></script>
-<script src="js/transaksi.js?v=67"></script>
-<script src="js/inventory.js?v=67"></script>
-<script src="js/laporan.js?v=67"></script>
-<script src="js/setting.js?v=67"></script>
-<script src="js/app.js?v=67"></script>
+<script src="js/supabase-config.js?v=68"></script>
+<script src="js/auth.js?v=68"></script>
+<script src="js/offline.js?v=68"></script>
+<script src="js/fitur-loader.js?v=68"></script>
+<script src="js/fitur-voucher.js?v=68"></script>
+<script src="js/fitur-diskon.js?v=68"></script>
+<script src="js/fitur-tax.js?v=68"></script>
+<script src="js/fitur-pesanan.js?v=68"></script>
+<script src="js/fitur-payment.js?v=68"></script>
+<script src="js/fitur-papan-pesan.js?v=68"></script>
+<script src="js/printer-struk.js?v=68"></script>
+<script src="js/camera-scanner.js?v=68"></script>
+<script src="js/transaksi.js?v=68"></script>
+<script src="js/inventory.js?v=68"></script>
+<script src="js/laporan.js?v=68"></script>
+<script src="js/setting.js?v=68"></script>
+<script src="js/app.js?v=68"></script>
 
 </body>
 </html>
