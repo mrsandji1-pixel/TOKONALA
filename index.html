@@ -2,9 +2,9 @@
 <html lang="id">
 <head>
 <script>
-// SMART CACHE CLEAR - v68
+// SMART CACHE CLEAR - v69
 (function() {
-  var currentVersion = 'v68';
+  var currentVersion = 'v69';
   var storedVersion = localStorage.getItem('appVersion');
   caches.keys().then(function(names) { names.forEach(function(name) { caches.delete(name); }); });
   navigator.serviceWorker.getRegistrations().then(function(regs) { regs.forEach(function(reg) { reg.unregister(); }); });
@@ -39,6 +39,7 @@
     <button class="tab-btn" data-page="fitur">🔧 Fitur</button>
     <button class="tab-btn" data-page="setting">Setting</button>
     <button class="msg-btn" onclick="bukaPapanPesanCepat()" id="btnPapanPesan" style="display:none; position:relative;" title="Papan Pesan">📢<span id="unreadBadge" style="display:none; position:absolute; top:-4px; right:-4px; background:#e53935; color:white; border-radius:50%; font-size:9px; min-width:16px; height:16px; line-height:16px; text-align:center; padding:0 3px; font-weight:bold;">0</span></button>
+    <button class="msg-btn" onclick="bukaBiayaCepat()" id="btnBiayaCepat" style="display:none;" title="Biaya Operasional">📝</button>
     <button class="logout-btn" onclick="logout()">Logout</button>
   </div>
 
@@ -317,26 +318,26 @@
 </div>
 
 <!-- ================== SCRIPTS ================== -->
-<script src="js/supabase-config.js?v=68"></script>
-<script src="js/auth.js?v=68"></script>
-<script src="js/offline.js?v=68"></script>
-<script src="js/fitur-loader.js?v=68"></script>
-<script src="js/fitur-voucher.js?v=68"></script>
-<script src="js/fitur-diskon.js?v=68"></script>
-<script src="js/fitur-tax.js?v=68"></script>
-<script src="js/fitur-pesanan.js?v=68"></script>
-<script src="js/fitur-payment.js?v=68"></script>
-<script src="js/fitur-papan-pesan.js?v=68"></script>
-<script src="js/fitur-utang.js?v=68"></script>
-<script src="js/fitur-opname.js?v=68"></script>
+<script src="js/supabase-config.js?v=69"></script>
+<script src="js/auth.js?v=69"></script>
+<script src="js/offline.js?v=69"></script>
+<script src="js/fitur-loader.js?v=69"></script>
+<script src="js/fitur-voucher.js?v=69"></script>
+<script src="js/fitur-diskon.js?v=69"></script>
+<script src="js/fitur-tax.js?v=69"></script>
+<script src="js/fitur-pesanan.js?v=69"></script>
+<script src="js/fitur-payment.js?v=69"></script>
+<script src="js/fitur-papan-pesan.js?v=69"></script>
+<script src="js/fitur-utang.js?v=69"></script>
+<script src="js/fitur-opname.js?v=69"></script>
 <script src="js/fitur-biaya.js?v=69"></script>
-<script src="js/printer-struk.js?v=68"></script>
-<script src="js/camera-scanner.js?v=68"></script>
-<script src="js/transaksi.js?v=68"></script>
-<script src="js/inventory.js?v=68"></script>
-<script src="js/laporan.js?v=68"></script>
-<script src="js/setting.js?v=68"></script>
-<script src="js/app.js?v=68"></script>
+<script src="js/printer-struk.js?v=69"></script>
+<script src="js/camera-scanner.js?v=69"></script>
+<script src="js/transaksi.js?v=69"></script>
+<script src="js/inventory.js?v=69"></script>
+<script src="js/laporan.js?v=69"></script>
+<script src="js/setting.js?v=69"></script>
+<script src="js/app.js?v=69"></script>
 
 </body>
 </html>
