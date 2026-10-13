@@ -16,7 +16,6 @@ async function loadFeatures() {
   updateLabelButtonVisibility();
   updateGrosirVisibility();
   
-  // Update visibility tombol papan pesan
   if (typeof updatePapanPesanButtonVisibility === 'function') {
     updatePapanPesanButtonVisibility();
   }
@@ -215,7 +214,6 @@ async function simpanFitur() {
   updateLabelButtonVisibility();
   updateGrosirVisibility();
   
-  // Update visibility tombol papan pesan
   if (typeof updatePapanPesanButtonVisibility === 'function') {
     updatePapanPesanButtonVisibility();
   }
@@ -265,96 +263,103 @@ function updateGrosirVisibility() {
   }
 }
 
-// ===================== SETUP MODAL FUNCTIONS =====================
-
-async function setupModal_utang(containerId) {
-  var container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = '<p>Memuat...</p>';
-  
-  try {
-    var r = await supabaseClient.from('customer_debts').select('*').eq('status', 'active').order('created_at', { ascending: false });
-    var debts = r.data || [];
-    
-    var html = '<button class="btn btn-sm" onclick="formTambahUtang()">➕ Tambah Utang</button>';
-    
-    if (!debts.length) {
-      html += '<p>Tidak ada utang aktif</p>';
-      container.innerHTML = html;
-      return;
-    }
-    
-    html += '<table class="user-table"><thead><tr><th>Customer</th><th>Total</th><th>Sudah Bayar</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>';
-    debts.forEach(function(d) {
-      var sisa = (d.amount || 0) - (d.paid || 0);
-      html += '<tr><td>' + d.customer_name + '</td><td>Rp ' + (d.amount||0).toLocaleString('id') + '</td><td>Rp ' + (d.paid||0).toLocaleString('id') + '</td><td><b>Rp ' + sisa.toLocaleString('id') + '</b></td>';
-      html += '<td><button class="btn-sm" onclick="formBayarUtang(' + d.id + ')">💰</button> <button class="btn-sm btn-danger" onclick="hapusUtang(' + d.id + ')">🗑</button></td></tr>';
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
-  } catch(e) {
-    container.innerHTML = '<p>❌ Gagal memuat: ' + e.message + '</p>';
-  }
-}
-
+// ===================== SETUP MODAL: BIAYA =====================
 async function setupModal_biaya(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
-  container.innerHTML = '<p>Memuat...</p>';
   
-  try {
-    var r = await supabaseClient.from('expenses').select('*').order('tanggal', { ascending: false }).limit(50);
-    var expenses = r.data || [];
-    var total = expenses.reduce(function(s, e) { return s + (e.jumlah || 0); }, 0);
-    
-    var html = '<button class="btn btn-sm" onclick="formTambahBiaya()">➕ Tambah Biaya</button>';
-    html += '<p>Total: <b>Rp ' + total.toLocaleString('id') + '</b></p>';
-    
-    if (!expenses.length) {
-      html += '<p>Tidak ada biaya</p>';
-      container.innerHTML = html;
-      return;
-    }
-    
-    html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Jumlah</th></tr></thead><tbody>';
-    expenses.forEach(function(e) {
-      html += '<tr><td>' + e.tanggal + '</td><td>' + e.kategori + '</td><td>Rp ' + (e.jumlah||0).toLocaleString('id') + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
-  } catch(e) {
-    container.innerHTML = '<p>❌ Gagal memuat: ' + e.message + '</p>';
+  // Buat container biayaContent
+  container.innerHTML = '<div id="biayaContent"></div>';
+  
+  // Panggil fungsi dari fitur-biaya.js
+  if (typeof muatDaftarBiaya === 'function') {
+    await muatDaftarBiaya();
+  } else {
+    container.innerHTML = '<p style="color:#999;">Fitur Biaya belum siap.</p>';
   }
 }
 
+// ===================== SETUP MODAL: UTANG =====================
+async function setupModal_utang(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  
+  // Buat container utangContent
+  container.innerHTML = '<div id="utangContent"></div>';
+  
+  // Panggil fungsi dari fitur-utang.js
+  if (typeof muatDaftarUtang === 'function') {
+    await muatDaftarUtang();
+  } else if (typeof setupUtang === 'function') {
+    await setupUtang();
+  } else {
+    // Fallback render
+    try {
+      var r = await supabaseClient.from('customer_debts').select('*').eq('status', 'active').order('created_at', { ascending: false });
+      var debts = r.data || [];
+      
+      var html = '<button class="btn btn-sm" onclick="formTambahUtang()">➕ Tambah Utang</button>';
+      
+      if (!debts.length) {
+        html += '<p>Tidak ada utang aktif</p>';
+        container.innerHTML = html;
+        return;
+      }
+      
+      html += '<table class="user-table"><thead><tr><th>Customer</th><th>Total</th><th>Sudah Bayar</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>';
+      debts.forEach(function(d) {
+        var sisa = (d.amount || 0) - (d.paid || 0);
+        html += '<tr><td>' + d.customer_name + '</td><td>Rp ' + (d.amount||0).toLocaleString('id') + '</td><td>Rp ' + (d.paid||0).toLocaleString('id') + '</td><td><b>Rp ' + sisa.toLocaleString('id') + '</b></td>';
+        html += '<td><button class="btn-sm" onclick="formBayarUtang(' + d.id + ')">💰</button> <button class="btn-sm btn-danger" onclick="hapusUtang(' + d.id + ')">🗑</button></td></tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = '<p>❌ Gagal memuat: ' + e.message + '</p>';
+    }
+  }
+}
+
+// ===================== SETUP MODAL: OPNAME =====================
 async function setupModal_opname(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
-  container.innerHTML = '<p>Memuat...</p>';
   
-  try {
-    var r = await supabaseClient.from('stock_opname_sessions').select('*').order('created_at', { ascending: false });
-    var sessions = r.data || [];
-    
-    var html = '<button class="btn btn-sm" onclick="buatOpnameBaru()">➕ Buat Opname</button>';
-    
-    if (!sessions.length) {
-      html += '<p>Belum ada sesi opname</p>';
+  // Buat container opnameContent
+  container.innerHTML = '<div id="opnameContent"></div>';
+  
+  // Panggil fungsi dari fitur-opname.js
+  if (typeof muatDaftarOpname === 'function') {
+    await muatDaftarOpname();
+  } else if (typeof setupOpname === 'function') {
+    await setupOpname();
+  } else {
+    // Fallback render
+    try {
+      var r = await supabaseClient.from('stock_opname_sessions').select('*').order('created_at', { ascending: false });
+      var sessions = r.data || [];
+      
+      var html = '<button class="btn btn-sm" onclick="buatOpnameBaru()">➕ Buat Opname</button>';
+      
+      if (!sessions.length) {
+        html += '<p>Belum ada sesi opname</p>';
+        container.innerHTML = html;
+        return;
+      }
+      
+      html += '<table class="user-table"><thead><tr><th>Nama</th><th>Status</th><th>Tanggal</th></tr></thead><tbody>';
+      sessions.forEach(function(s) {
+        html += '<tr><td>' + s.nama + '</td><td>' + s.status + '</td><td>' + new Date(s.created_at).toLocaleDateString('id-ID') + '</td></tr>';
+      });
+      html += '</tbody></table>';
       container.innerHTML = html;
-      return;
+    } catch(e) {
+      container.innerHTML = '<p>❌ Gagal memuat: ' + e.message + '</p>';
     }
-    
-    html += '<table class="user-table"><thead><tr><th>Nama</th><th>Status</th><th>Tanggal</th></tr></thead><tbody>';
-    sessions.forEach(function(s) {
-      html += '<tr><td>' + s.nama + '</td><td>' + s.status + '</td><td>' + new Date(s.created_at).toLocaleDateString('id-ID') + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
-  } catch(e) {
-    container.innerHTML = '<p>❌ Gagal memuat: ' + e.message + '</p>';
   }
 }
 
+// ===================== SETUP MODAL: EMAILSTRUK =====================
 async function setupModal_emailstruk(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
@@ -377,18 +382,21 @@ async function setupModal_emailstruk(containerId) {
   }
 }
 
+// ===================== SETUP MODAL: WHATSAPP =====================
 async function setupModal_whatsapp(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '<p>Gunakan tombol 📱 di Laporan untuk kirim struk via WhatsApp.</p>';
 }
 
+// ===================== SETUP MODAL: LABEL =====================
 async function setupModal_label(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '<p>Gunakan tombol 🏷️ Label pada daftar produk untuk mencetak label harga.</p>';
 }
 
+// ===================== SETUP MODAL: SUPER ADMIN =====================
 async function setupModal_superadmin(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
