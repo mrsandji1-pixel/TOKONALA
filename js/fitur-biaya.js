@@ -1,4 +1,4 @@
-// ===================== FITUR BIAYA OPERASIONAL - ENHANCED v2 =====================
+// ===================== FITUR BIAYA OPERASIONAL - v3 =====================
 var currentBiayaFilter = 'hari-ini';
 
 var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM'];
@@ -25,6 +25,24 @@ async function loadKategoriBiaya() {
   });
   
   return allCats;
+}
+
+// ===================== HELPER: Format tanggal Indonesia =====================
+function getLocalDateStr(date) {
+  var y = date.getFullYear();
+  var m = ('0' + (date.getMonth() + 1)).slice(-2);
+  var d = ('0' + date.getDate()).slice(-2);
+  return y + '-' + m + '-' + d;
+}
+
+function formatTanggalIndo(date) {
+  var bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  return date.getDate() + ' ' + bulan[date.getMonth()] + ' ' + date.getFullYear();
+}
+
+function formatBulanIndo(date) {
+  var bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  return bulan[date.getMonth()] + ' ' + date.getFullYear();
 }
 
 // ===================== DAFTAR BIAYA =====================
@@ -63,92 +81,98 @@ async function muatDaftarBiaya() {
     totalPerKategori[kat] += (e.jumlah || 0);
   });
   
-  var periodeLabel = currentBiayaFilter === 'hari-ini' ? 'Hari Ini' : 'Bulan Ini';
+  // Label periode
+  var periodeLabel = '';
+  if (currentBiayaFilter === 'hari-ini') {
+    periodeLabel = formatTanggalIndo(today);
+  } else {
+    periodeLabel = formatBulanIndo(today);
+  }
   
-  var html = '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
-  html += '<button class="btn btn-sm" onclick="filterBiaya(\'hari-ini\')" style="' + (currentBiayaFilter === 'hari-ini' ? 'background:#00897b;color:white;' : '') + '">Hari Ini</button>';
-  html += '<button class="btn btn-sm" onclick="filterBiaya(\'bulan-ini\')" style="' + (currentBiayaFilter === 'bulan-ini' ? 'background:#00897b;color:white;' : '') + '">Bulan Ini</button>';
-  html += '<button class="btn" onclick="formTambahBiaya()">➕ Tambah Biaya</button>';
+  var html = '';
+  
+  // Button Tambah Biaya & Kelola Kategori (di atas)
+  html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+  html += '<button class="btn" onclick="formTambahBiaya()" style="flex:1;background:#009688;color:white;">➕ Tambah Biaya</button>';
   html += '<button class="btn btn-sm" onclick="formKelolaKategori()" style="background:#ff9800;color:white;">📁 Kelola Kategori</button>';
   html += '</div>';
   
   // Total keseluruhan
   html += '<div style="background:#e0f2f1;padding:12px;border-radius:8px;margin-bottom:12px;">';
-  html += '<small>Total Pengeluaran (' + periodeLabel + ')</small><br><strong style="font-size:20px;">Rp ' + total.toLocaleString('id') + '</strong>';
+  html += '<small>Total Pengeluaran ' + periodeLabel + '</small><br><strong style="font-size:20px;">Rp ' + total.toLocaleString('id') + '</strong>';
   html += '</div>';
   
+  // Tabel detail
   if (!expenses.length) {
     html += '<p style="text-align:center;color:#999;padding:20px;">Tidak ada biaya tercatat</p>';
-    container.innerHTML = html;
-    return;
+  } else {
+    html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody>';
+    
+    expenses.forEach(function(e) {
+      var itemDisplay = '';
+      if (e.qty && e.unit) {
+        itemDisplay = e.qty + ' ' + e.unit;
+      } else if (e.qty) {
+        itemDisplay = e.qty;
+      } else {
+        itemDisplay = '-';
+      }
+      
+      var keteranganDisplay = '';
+      if (e.keterangan) {
+        keteranganDisplay = '<br><small style="color:#666;font-size:11px;">' + e.keterangan + '</small>';
+      }
+      
+      html += '<tr>';
+      html += '<td style="font-size:11px;">' + e.tanggal + '</td>';
+      html += '<td><b>' + e.kategori + '</b></td>';
+      html += '<td>' + itemDisplay + keteranganDisplay + '</td>';
+      html += '<td>Rp ' + (e.jumlah||0).toLocaleString('id') + '</td>';
+      html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')">🗑</button></td>';
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
   }
   
-  // Tabel detail
-  html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody>';
-  
-  expenses.forEach(function(e) {
-    var itemDisplay = '';
-    if (e.qty && e.unit) {
-      itemDisplay = e.qty + ' ' + e.unit;
-    } else if (e.qty) {
-      itemDisplay = e.qty;
-    } else {
-      itemDisplay = '-';
-    }
-    
-    // Tampilkan keterangan di bawah item jika ada
-    var keteranganDisplay = '';
-    if (e.keterangan) {
-      keteranganDisplay = '<br><small style="color:#666;font-size:11px;">' + e.keterangan + '</small>';
-    }
-    
-    html += '<tr>';
-    html += '<td style="font-size:11px;">' + e.tanggal + '</td>';
-    html += '<td><b>' + e.kategori + '</b></td>';
-    html += '<td>' + itemDisplay + keteranganDisplay + '</td>';
-    html += '<td>Rp ' + (e.jumlah||0).toLocaleString('id') + '</td>';
-    html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')">🗑</button></td>';
-    html += '</tr>';
-  });
-  
-  html += '</tbody></table>';
-  
-  // Summary per kategori
+  // Summary per kategori dengan label periode
   html += '<div style="margin-top:16px;background:#f8fafb;border-radius:8px;padding:12px;border:1px solid #e8ecf0;">';
-  html += '<h4 style="margin:0 0 12px 0;color:#00695c;">📊 Total per Kategori (' + periodeLabel + ')</h4>';
+  html += '<h4 style="margin:0 0 12px 0;color:#00695c;">📊 Total per Kategori - ' + periodeLabel + '</h4>';
   html += '<table style="width:100%;border-collapse:collapse;">';
   
-  var kategoriKeys = Object.keys(totalPerKategori).sort();
-  kategoriKeys.forEach(function(kat) {
-    var subtotal = totalPerKategori[kat];
-    var persen = total > 0 ? ((subtotal / total) * 100).toFixed(1) : 0;
+  if (Object.keys(totalPerKategori).length === 0) {
+    html += '<tr><td style="padding:8px;color:#999;text-align:center;">Belum ada data</td></tr>';
+  } else {
+    var kategoriKeys = Object.keys(totalPerKategori).sort();
+    kategoriKeys.forEach(function(kat) {
+      var subtotal = totalPerKategori[kat];
+      var persen = total > 0 ? ((subtotal / total) * 100).toFixed(1) : 0;
+      
+      html += '<tr style="border-bottom:1px solid #e8ecf0;">';
+      html += '<td style="padding:8px 4px;font-weight:600;">' + kat + '</td>';
+      html += '<td style="padding:8px 4px;text-align:right;">Rp ' + subtotal.toLocaleString('id') + '</td>';
+      html += '<td style="padding:8px 4px;text-align:right;font-size:12px;color:#666;width:60px;">' + persen + '%</td>';
+      html += '</tr>';
+    });
     
-    html += '<tr style="border-bottom:1px solid #e8ecf0;">';
-    html += '<td style="padding:8px 4px;font-weight:600;">' + kat + '</td>';
-    html += '<td style="padding:8px 4px;text-align:right;">Rp ' + subtotal.toLocaleString('id') + '</td>';
-    html += '<td style="padding:8px 4px;text-align:right;font-size:12px;color:#666;width:60px;">' + persen + '%</td>';
+    // Baris total
+    html += '<tr style="background:#e0f2f1;font-weight:bold;">';
+    html += '<td style="padding:10px 4px;">TOTAL</td>';
+    html += '<td style="padding:10px 4px;text-align:right;">Rp ' + total.toLocaleString('id') + '</td>';
+    html += '<td style="padding:10px 4px;text-align:right;font-size:12px;">100%</td>';
     html += '</tr>';
-  });
-  
-  // Baris total
-  html += '<tr style="background:#e0f2f1;font-weight:bold;">';
-  html += '<td style="padding:10px 4px;">TOTAL</td>';
-  html += '<td style="padding:10px 4px;text-align:right;">Rp ' + total.toLocaleString('id') + '</td>';
-  html += '<td style="padding:10px 4px;text-align:right;font-size:12px;">100%</td>';
-  html += '</tr>';
+  }
   
   html += '</table>';
   html += '</div>';
   
+  // Tombol filter di paling bawah
+  html += '<div style="display:flex;gap:8px;margin-top:16px;justify-content:center;">';
+  html += '<button class="btn btn-sm" onclick="filterBiaya(\'hari-ini\')" style="' + (currentBiayaFilter === 'hari-ini' ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📅 Hari Ini</button>';
+  html += '<button class="btn btn-sm" onclick="filterBiaya(\'bulan-ini\')" style="' + (currentBiayaFilter === 'bulan-ini' ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📆 Bulan Ini</button>';
+  html += '</div>';
+  
   container.innerHTML = html;
-}
-
-// Helper: format tanggal lokal
-function getLocalDateStr(date) {
-  var y = date.getFullYear();
-  var m = ('0' + (date.getMonth() + 1)).slice(-2);
-  var d = ('0' + date.getDate()).slice(-2);
-  return y + '-' + m + '-' + d;
 }
 
 async function filterBiaya(periode) {
@@ -241,7 +265,6 @@ async function simpanBiaya() {
   if (!kategori) { alert('❌ Pilih kategori!'); return; }
   if (jumlah <= 0) { alert('❌ Isi total harga yang valid!'); return; }
   
-  // Gabungkan item + keterangan
   var keteranganFinal = keterangan;
   if (item) {
     keteranganFinal = item + (keterangan ? ' - ' + keterangan : '');
