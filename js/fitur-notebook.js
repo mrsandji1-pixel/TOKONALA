@@ -1,4 +1,4 @@
-// ===================== FITUR NOTEBOOK - CLEAN =====================
+// ===================== FITUR NOTEBOOK - CLEAN v2 =====================
 var currentNotebookDate = null;
 var notebookHistoryMode = false;
 
@@ -79,22 +79,23 @@ async function muatNotebook() {
     return;
   }
   
-  // ================== HEADER TANGGAL (satu-satunya navigasi) ==================
+  // ================== HEADER TANGGAL (SATU BARIS) ==================
   html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;background:#e0f2f1;padding:6px;border-radius:6px;">';
-  html += '<button onclick="prevNotebookDay()" style="background:white;border:none;font-size:14px;cursor:pointer;padding:4px 8px;border-radius:4px;font-weight:bold;color:#00695c;">◀</button>';
-  html += '<div style="flex:1;text-align:center;font-size:12px;font-weight:bold;color:#00695c;line-height:1.3;">' + formatTanggalLengkap(tanggal) + '</div>';
-  html += '<button onclick="nextNotebookDay()" style="background:white;border:none;font-size:14px;cursor:pointer;padding:4px 8px;border-radius:4px;font-weight:bold;color:#00695c;">▶</button>';
+  html += '<button onclick="prevNotebookDay()" style="background:white;border:none;font-size:14px;cursor:pointer;padding:4px 10px;border-radius:4px;font-weight:bold;color:#00695c;">◀</button>';
+  html += '<div style="flex:1;text-align:center;position:relative;">';
+  html += '<input type="date" id="notebookDate" value="' + tanggal + '" onchange="gantiTanggalNotebook()" style="width:100%;background:transparent;border:none;text-align:center;font-size:13px;font-weight:bold;color:#00695c;cursor:pointer;font-family:inherit;padding:4px;" />';
+  html += '</div>';
+  html += '<button onclick="nextNotebookDay()" style="background:white;border:none;font-size:14px;cursor:pointer;padding:4px 10px;border-radius:4px;font-weight:bold;color:#00695c;">▶</button>';
   html += '</div>';
   
-  // Tanggal picker (kecil) + Hari Ini
-  html += '<div style="display:flex;gap:4px;margin-bottom:8px;">';
-  html += '<input type="date" id="notebookDate" value="' + tanggal + '" onchange="gantiTanggalNotebook()" style="flex:1;padding:4px 6px;border:1px solid #e0e4e8;border-radius:4px;font-size:11px;color:#666;">';
+  // Tombol Hari Ini jika bukan hari ini
   if (!isToday) {
-    html += '<button onclick="goToTodayNotebook()" style="padding:4px 10px;font-size:11px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap;">Hari Ini</button>';
+    html += '<div style="text-align:center;margin-bottom:8px;">';
+    html += '<button onclick="goToTodayNotebook()" style="padding:3px 12px;font-size:11px;background:#ff9800;color:white;border:none;border-radius:12px;cursor:pointer;font-weight:600;">↩️ Kembali ke Hari Ini</button>';
+    html += '</div>';
   }
-  html += '</div>';
   
-  // ================== SALES (compact) ==================
+  // ================== SALES ==================
   html += '<div style="background:#f8fafb;border-radius:8px;padding:8px;margin-bottom:6px;border:1px solid #e8ecf0;">';
   html += '<div style="font-size:11px;font-weight:bold;color:#00695c;margin-bottom:4px;">💰 SALES</div>';
   
@@ -119,7 +120,7 @@ async function muatNotebook() {
   html += '</div>';
   html += '</div>';
   
-  // ================== KC (compact) ==================
+  // ================== KC ==================
   html += '<div style="background:#fff8e1;border-radius:8px;padding:8px;margin-bottom:6px;border:1px solid #ffe082;">';
   html += '<div style="font-size:11px;font-weight:bold;color:#e65100;margin-bottom:4px;">📊 KC</div>';
   
@@ -149,7 +150,7 @@ async function muatNotebook() {
   html += '</div>';
   html += '</div>';
   
-  // ================== KETERANGAN (compact) ==================
+  // ================== KETERANGAN ==================
   html += '<div style="display:flex;gap:4px;margin-bottom:6px;align-items:center;">';
   html += '<label style="flex:0 0 45px;font-size:11px;color:#666;">Note</label>';
   html += '<input type="text" id="nbKeterangan" value="' + (data.keterangan || '') + '" placeholder="Catatan..." style="flex:1;padding:5px 6px;border:1px solid #e0e4e8;border-radius:4px;font-size:11px;">';
