@@ -1,9 +1,8 @@
-// ===================== FITUR NOTEBOOK - SALES & KC =====================
+// ===================== FITUR NOTEBOOK - SALES & KC - FIXED =====================
 var currentNotebookDate = null;
 
 // ===================== SETUP =====================
 async function setupNotebook() {
-  // Set tanggal default hari ini
   var today = new Date();
   currentNotebookDate = getLocalDateStr(today);
   await muatNotebook();
@@ -27,8 +26,8 @@ async function muatNotebook() {
   
   var tanggal = currentNotebookDate || getLocalDateStr(new Date());
   
-  // Ambil data sales untuk tanggal ini
-  var r = await supabaseClient.from('daily_sales').select('*').eq('tanggal', tanggal).single();
+  // FIXED: Use maybeSingle()
+  var r = await supabaseClient.from('daily_sales').select('*').eq('tanggal', tanggal).maybeSingle();
   var data = r.data || {
     tanggal: tanggal,
     cash: 0, edc: 0, grab: 0, total_sales: 0,
@@ -43,14 +42,10 @@ async function muatNotebook() {
   
   var totalBelanja = (belanjaR.data || []).reduce(function(s, e) { return s + (e.jumlah || 0); }, 0);
   
-  // Set belanja otomatis dari expenses
   data.belanja = totalBelanja;
   
-  // Hitung total sales & KC
   var totalSales = (data.cash || 0) + (data.edc || 0) + (data.grab || 0);
   var kc = (data.km || 0) + (data.cash || 0) + (data.pl || 0) - totalBelanja;
-  
-  var isAdmin = currentUser && currentUser.role === 'admin';
   
   var html = '';
   
@@ -106,7 +101,7 @@ async function muatNotebook() {
   
   html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
   html += '<label style="flex:0 0 80px;font-size:13px;">Belanja</label>';
-  html += '<div style="flex:1;padding:10px;background:#f5f5f5;border-radius:6px;font-size:14px;text-align:right;color:#666;" id="nbBelanjaSync">' + formatRupiah(totalBelanja) + '</div>';
+  html += '<div style="flex:1;padding:10px;background:#f5f5f5;border-radius:6px;font-size:14px;text-align:right;color:#666;" id="nbBelanjaSync" data-belanja="' + totalBelanja + '">' + formatRupiah(totalBelanja) + '</div>';
   html += '</div>';
   html += '<small style="color:#e65100;font-size:11px;">💡 Belanja otomatis dari total Biaya Operasional tanggal ini</small>';
   
@@ -136,18 +131,15 @@ function hitungNotebook() {
   var km = parseFloat(document.getElementById('nbKm').value) || 0;
   var pl = parseFloat(document.getElementById('nbPl').value) || 0;
   
-  // Total Sales
   var totalSales = cash + edc + grab;
   document.getElementById('nbTotalSales').textContent = formatRupiah(totalSales);
   
-  // Sync cash ke KC
   document.getElementById('nbCashSync').textContent = formatRupiah(cash);
   
-  // Ambil belanja dari sync
-  var belanjaText = document.getElementById('nbBelanjaSync').textContent;
-  var belanja = parseFloat(belanjaText.replace(/[^0-9]/g, '')) || 0;
+  // Ambil belanja dari data attribute
+  var belanjaEl = document.getElementById('nbBelanjaSync');
+  var belanja = parseFloat(belanjaEl.getAttribute('data-belanja')) || 0;
   
-  // Total KC
   var kc = km + cash + pl - belanja;
   document.getElementById('nbTotalKc').textContent = formatRupiah(kc);
 }
@@ -170,14 +162,12 @@ async function simpanNotebook() {
   
   if (!tanggal) { alert('❌ Pilih tanggal!'); return; }
   
-  // Total sales
   var totalSales = cash + edc + grab;
   
   // Ambil belanja dari expenses
   var belanjaR = await supabaseClient.from('expenses').select('jumlah').eq('tanggal', tanggal);
   var totalBelanja = (belanjaR.data || []).reduce(function(s, e) { return s + (e.jumlah || 0); }, 0);
   
-  // Total KC
   var kc = km + cash + pl - totalBelanja;
   
   var data = {
@@ -196,16 +186,14 @@ async function simpanNotebook() {
   };
   
   try {
-    // Cek apakah sudah ada data untuk tanggal ini
-    var check = await supabaseClient.from('daily_sales').select('id').eq('tanggal', tanggal).single();
+    // FIXED: Use maybeSingle()
+    var check = await supabaseClient.from('daily_sales').select('id').eq('tanggal', tanggal).maybeSingle();
     
     if (check.data) {
-      // Update
       var result = await supabaseClient.from('daily_sales').update(data).eq('tanggal', tanggal);
       if (result.error) throw result.error;
       alert('✅ Catatan diupdate');
     } else {
-      // Insert
       var result2 = await supabaseClient.from('daily_sales').insert(data);
       if (result2.error) throw result2.error;
       alert('✅ Catatan disimpan');
