@@ -1,5 +1,5 @@
-// ===================== FITUR BIAYA OPERASIONAL - ENHANCED =====================
-var currentBiayaFilter = 'bulan-ini';
+// ===================== FITUR BIAYA OPERASIONAL - ENHANCED v2 =====================
+var currentBiayaFilter = 'hari-ini';
 
 var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM'];
 
@@ -33,15 +33,17 @@ async function muatDaftarBiaya() {
   if (!container) return;
   
   var today = new Date();
-  var startDate = today.toISOString().slice(0, 10);
-  var endDate = today.toISOString().slice(0, 10);
+  var startDate, endDate;
   
   if (currentBiayaFilter === 'hari-ini') {
-    startDate = today.toISOString().slice(0, 10);
-    endDate = today.toISOString().slice(0, 10);
+    startDate = getLocalDateStr(today);
+    endDate = getLocalDateStr(today);
   } else if (currentBiayaFilter === 'bulan-ini') {
-    startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-    endDate = today.toISOString().slice(0, 10);
+    startDate = getLocalDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    endDate = getLocalDateStr(today);
+  } else {
+    startDate = getLocalDateStr(today);
+    endDate = getLocalDateStr(today);
   }
   
   var r = await supabaseClient.from('expenses')
@@ -61,6 +63,8 @@ async function muatDaftarBiaya() {
     totalPerKategori[kat] += (e.jumlah || 0);
   });
   
+  var periodeLabel = currentBiayaFilter === 'hari-ini' ? 'Hari Ini' : 'Bulan Ini';
+  
   var html = '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
   html += '<button class="btn btn-sm" onclick="filterBiaya(\'hari-ini\')" style="' + (currentBiayaFilter === 'hari-ini' ? 'background:#00897b;color:white;' : '') + '">Hari Ini</button>';
   html += '<button class="btn btn-sm" onclick="filterBiaya(\'bulan-ini\')" style="' + (currentBiayaFilter === 'bulan-ini' ? 'background:#00897b;color:white;' : '') + '">Bulan Ini</button>';
@@ -70,7 +74,7 @@ async function muatDaftarBiaya() {
   
   // Total keseluruhan
   html += '<div style="background:#e0f2f1;padding:12px;border-radius:8px;margin-bottom:12px;">';
-  html += '<small>Total Pengeluaran (' + currentBiayaFilter + ')</small><br><strong style="font-size:20px;">Rp ' + total.toLocaleString('id') + '</strong>';
+  html += '<small>Total Pengeluaran (' + periodeLabel + ')</small><br><strong style="font-size:20px;">Rp ' + total.toLocaleString('id') + '</strong>';
   html += '</div>';
   
   if (!expenses.length) {
@@ -80,7 +84,7 @@ async function muatDaftarBiaya() {
   }
   
   // Tabel detail
-  html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Keterangan</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody>';
+  html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody>';
   
   expenses.forEach(function(e) {
     var itemDisplay = '';
@@ -92,11 +96,16 @@ async function muatDaftarBiaya() {
       itemDisplay = '-';
     }
     
+    // Tampilkan keterangan di bawah item jika ada
+    var keteranganDisplay = '';
+    if (e.keterangan) {
+      keteranganDisplay = '<br><small style="color:#666;font-size:11px;">' + e.keterangan + '</small>';
+    }
+    
     html += '<tr>';
-    html += '<td>' + e.tanggal + '</td>';
+    html += '<td style="font-size:11px;">' + e.tanggal + '</td>';
     html += '<td><b>' + e.kategori + '</b></td>';
-    html += '<td>' + itemDisplay + '</td>';
-    html += '<td>' + (e.keterangan || '-') + '</td>';
+    html += '<td>' + itemDisplay + keteranganDisplay + '</td>';
     html += '<td>Rp ' + (e.jumlah||0).toLocaleString('id') + '</td>';
     html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')">🗑</button></td>';
     html += '</tr>';
@@ -106,7 +115,7 @@ async function muatDaftarBiaya() {
   
   // Summary per kategori
   html += '<div style="margin-top:16px;background:#f8fafb;border-radius:8px;padding:12px;border:1px solid #e8ecf0;">';
-  html += '<h4 style="margin:0 0 12px 0;color:#00695c;">📊 Total per Kategori</h4>';
+  html += '<h4 style="margin:0 0 12px 0;color:#00695c;">📊 Total per Kategori (' + periodeLabel + ')</h4>';
   html += '<table style="width:100%;border-collapse:collapse;">';
   
   var kategoriKeys = Object.keys(totalPerKategori).sort();
@@ -117,7 +126,7 @@ async function muatDaftarBiaya() {
     html += '<tr style="border-bottom:1px solid #e8ecf0;">';
     html += '<td style="padding:8px 4px;font-weight:600;">' + kat + '</td>';
     html += '<td style="padding:8px 4px;text-align:right;">Rp ' + subtotal.toLocaleString('id') + '</td>';
-    html += '<td style="padding:8px 4px;text-align:right;font-size:12px;color:#666;">' + persen + '%</td>';
+    html += '<td style="padding:8px 4px;text-align:right;font-size:12px;color:#666;width:60px;">' + persen + '%</td>';
     html += '</tr>';
   });
   
@@ -134,6 +143,14 @@ async function muatDaftarBiaya() {
   container.innerHTML = html;
 }
 
+// Helper: format tanggal lokal
+function getLocalDateStr(date) {
+  var y = date.getFullYear();
+  var m = ('0' + (date.getMonth() + 1)).slice(-2);
+  var d = ('0' + date.getDate()).slice(-2);
+  return y + '-' + m + '-' + d;
+}
+
 async function filterBiaya(periode) {
   currentBiayaFilter = periode;
   await muatDaftarBiaya();
@@ -145,7 +162,7 @@ async function formTambahBiaya() {
   
   var modal = document.createElement('div');
   modal.id = 'biayaModal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
   
   var catOptions = '';
   allCats.forEach(function(c) {
@@ -159,7 +176,7 @@ async function formTambahBiaya() {
     '</div>' +
     
     '<label style="font-size:13px;font-weight:600;color:#455a64;">Tanggal</label>' +
-    '<input type="date" id="biayaTanggal" style="width:100%;padding:10px;margin-bottom:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;" value="' + new Date().toISOString().slice(0, 10) + '">' +
+    '<input type="date" id="biayaTanggal" style="width:100%;padding:10px;margin-bottom:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;" value="' + getLocalDateStr(new Date()) + '">' +
     
     '<label style="font-size:13px;font-weight:600;color:#455a64;">Kategori</label>' +
     '<select id="biayaKategori" style="width:100%;padding:10px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">' +
@@ -167,11 +184,9 @@ async function formTambahBiaya() {
     catOptions +
     '</select>' +
     
-    // NEW: Nama Item
-    '<label style="font-size:13px;font-weight:600;color:#455a64;">Nama Item (opsional)</label>' +
+    '<label style="font-size:13px;font-weight:600;color:#455a64;">Nama Item</label>' +
     '<input type="text" id="biayaItem" placeholder="cth: Beras, Gas LPG, dll" style="width:100%;padding:10px;margin-bottom:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;">' +
     
-    // NEW: Jumlah & Unit
     '<label style="font-size:13px;font-weight:600;color:#455a64;">Jumlah & Unit</label>' +
     '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
     '<input type="number" id="biayaQty" placeholder="0" step="0.01" min="0" style="flex:1;padding:10px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;">' +
@@ -192,7 +207,7 @@ async function formTambahBiaya() {
     '<label style="font-size:13px;font-weight:600;color:#455a64;">Total Harga (Rp)</label>' +
     '<input type="number" id="biayaJumlah" placeholder="0" style="width:100%;padding:10px;margin-bottom:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;">' +
     
-    '<label style="font-size:13px;font-weight:600;color:#455a64;">Keterangan (opsional)</label>' +
+    '<label style="font-size:13px;font-weight:600;color:#455a64;">Keterangan</label>' +
     '<input type="text" id="biayaKeterangan" placeholder="Catatan tambahan..." style="width:100%;padding:10px;margin-bottom:12px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;">' +
     
     '<div style="display:flex;gap:8px;">' +
@@ -213,7 +228,7 @@ function tutupModalBiaya() {
   if (modal) modal.remove();
 }
 
-// ===================== SIMPAN BIAYA (AUTO REFRESH) =====================
+// ===================== SIMPAN BIAYA =====================
 async function simpanBiaya() {
   var kategori = document.getElementById('biayaKategori').value.trim();
   var item = document.getElementById('biayaItem').value.trim();
@@ -221,7 +236,7 @@ async function simpanBiaya() {
   var unit = document.getElementById('biayaUnit').value;
   var jumlah = parseFloat(document.getElementById('biayaJumlah').value) || 0;
   var keterangan = document.getElementById('biayaKeterangan').value.trim();
-  var tanggal = document.getElementById('biayaTanggal').value || new Date().toISOString().slice(0, 10);
+  var tanggal = document.getElementById('biayaTanggal').value || getLocalDateStr(new Date());
   
   if (!kategori) { alert('❌ Pilih kategori!'); return; }
   if (jumlah <= 0) { alert('❌ Isi total harga yang valid!'); return; }
@@ -247,12 +262,8 @@ async function simpanBiaya() {
     return;
   }
   
-  // Tutup modal
   tutupModalBiaya();
-  
-  // AUTO REFRESH: langsung muat ulang daftar
   await muatDaftarBiaya();
-  
   alert('✅ Biaya dicatat');
 }
 
@@ -277,7 +288,7 @@ async function formKelolaKategori() {
   
   var modal = document.createElement('div');
   modal.id = 'kategoriModal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10002;';
   
   var html = '<div style="background:#fff;padding:20px;border-radius:12px;width:360px;max-height:90vh;overflow-y:auto;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
