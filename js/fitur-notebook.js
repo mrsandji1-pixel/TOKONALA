@@ -1,4 +1,4 @@
-// ===================== FITUR NOTEBOOK - SALES & KC - WITH HISTORY =====================
+// ===================== FITUR NOTEBOOK - COMPACT =====================
 var currentNotebookDate = null;
 var notebookHistoryMode = false;
 
@@ -21,11 +21,23 @@ function formatRupiah(n) {
   return 'Rp ' + (parseFloat(n) || 0).toLocaleString('id');
 }
 
+function formatAngka(n) {
+  return (parseFloat(n) || 0).toLocaleString('id');
+}
+
 function formatTanggalIndo(dateStr) {
   if (!dateStr) return '-';
   var bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   var d = new Date(dateStr + 'T00:00:00');
   return d.getDate() + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function formatTanggalLengkap(dateStr) {
+  if (!dateStr) return '-';
+  var hari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  var bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var d = new Date(dateStr + 'T00:00:00');
+  return hari[d.getDay()] + ', ' + d.getDate() + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
 }
 
 // ===================== LOAD DATA =====================
@@ -54,103 +66,103 @@ async function muatNotebook() {
   var totalSales = (data.cash || 0) + (data.edc || 0) + (data.grab || 0);
   var kc = (data.km || 0) + (data.cash || 0) + (data.pl || 0) - totalBelanja;
   
+  var isToday = tanggal === getLocalDateStr(new Date());
+  
   var html = '';
   
   // ================== TAB SWITCHER ==================
-  html += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
-  html += '<button class="btn btn-sm" onclick="switchNotebookTab(\'input\')" id="nbTabInput" style="flex:1;' + (!notebookHistoryMode ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📝 Input Harian</button>';
-  html += '<button class="btn btn-sm" onclick="switchNotebookTab(\'history\')" id="nbTabHistory" style="flex:1;' + (notebookHistoryMode ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📅 Riwayat</button>';
+  html += '<div style="display:flex;gap:6px;margin-bottom:10px;">';
+  html += '<button onclick="switchNotebookTab(\'input\')" style="flex:1;padding:6px;font-size:12px;border:none;border-radius:6px;font-weight:600;cursor:pointer;' + (!notebookHistoryMode ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📝 Input</button>';
+  html += '<button onclick="switchNotebookTab(\'history\')" style="flex:1;padding:6px;font-size:12px;border:none;border-radius:6px;font-weight:600;cursor:pointer;' + (notebookHistoryMode ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📅 Riwayat</button>';
   html += '</div>';
   
   if (notebookHistoryMode) {
-    // ================== MODE RIWAYAT ==================
     html += '<div id="notebookHistoryContent"></div>';
     container.innerHTML = html;
     await renderNotebookHistory();
     return;
   }
   
-  // ================== MODE INPUT ==================
-  // Date picker dengan navigasi
-  html += '<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">';
-  html += '<button class="btn btn-sm" onclick="prevNotebookDay()" title="Hari sebelumnya">◀</button>';
-  html += '<input type="date" id="notebookDate" value="' + tanggal + '" onchange="gantiTanggalNotebook()" style="padding:8px 12px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;">';
-  html += '<button class="btn btn-sm" onclick="nextNotebookDay()" title="Hari berikutnya">▶</button>';
-  html += '<button class="btn btn-sm" onclick="goToTodayNotebook()" style="background:#ff9800;color:white;">Hari Ini</button>';
+  // ================== HEADER TANGGAL ==================
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:#e0f2f1;padding:6px 8px;border-radius:6px;">';
+  html += '<button onclick="prevNotebookDay()" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 6px;">◀</button>';
+  html += '<div style="flex:1;text-align:center;font-size:13px;font-weight:bold;color:#00695c;">' + formatTanggalLengkap(tanggal) + '</div>';
+  html += '<button onclick="nextNotebookDay()" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 6px;">▶</button>';
   html += '</div>';
   
-  // Info jika bukan hari ini
-  var today = getLocalDateStr(new Date());
-  if (tanggal !== today) {
-    html += '<div style="background:#e3f2fd;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;color:#1565c0;">';
-    html += '📅 Melihat data: <b>' + formatTanggalIndo(tanggal) + '</b>';
-    html += '</div>';
+  // Date picker + Hari Ini
+  html += '<div style="display:flex;gap:6px;margin-bottom:10px;">';
+  html += '<input type="date" id="notebookDate" value="' + tanggal + '" onchange="gantiTanggalNotebook()" style="flex:1;padding:6px 8px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:12px;">';
+  if (!isToday) {
+    html += '<button onclick="goToTodayNotebook()" style="padding:6px 10px;font-size:11px;background:#ff9800;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Hari Ini</button>';
   }
-  
-  // ================== FORM SALES ==================
-  html += '<div style="background:#f8fafb;border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid #e8ecf0;">';
-  html += '<h4 style="margin:0 0 12px 0;color:#00695c;">💰 SALES</h4>';
-  
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">Cash</label>';
-  html += '<input type="number" id="nbCash" value="' + (data.cash || 0) + '" placeholder="0" style="flex:1;padding:10px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;text-align:right;" oninput="hitungNotebook()">';
   html += '</div>';
   
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">EDC</label>';
-  html += '<input type="number" id="nbEdc" value="' + (data.edc || 0) + '" placeholder="0" style="flex:1;padding:10px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;text-align:right;" oninput="hitungNotebook()">';
+  // ================== SALES (compact) ==================
+  html += '<div style="background:#f8fafb;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid #e8ecf0;">';
+  html += '<div style="font-size:12px;font-weight:bold;color:#00695c;margin-bottom:6px;">💰 SALES</div>';
+  
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">Cash</label>';
+  html += '<input type="number" id="nbCash" value="' + (data.cash || 0) + '" oninput="hitungNotebook()" style="flex:1;padding:5px 8px;border:1.5px solid #e0e4e8;border-radius:4px;font-size:13px;text-align:right;font-weight:600;">';
   html += '</div>';
   
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">Grab</label>';
-  html += '<input type="number" id="nbGrab" value="' + (data.grab || 0) + '" placeholder="0" style="flex:1;padding:10px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;text-align:right;" oninput="hitungNotebook()">';
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">EDC</label>';
+  html += '<input type="number" id="nbEdc" value="' + (data.edc || 0) + '" oninput="hitungNotebook()" style="flex:1;padding:5px 8px;border:1.5px solid #e0e4e8;border-radius:4px;font-size:13px;text-align:right;font-weight:600;">';
   html += '</div>';
   
-  html += '<div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:2px solid #e0e4e8;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:14px;font-weight:bold;color:#00695c;">SALES</label>';
-  html += '<div style="flex:1;font-size:20px;font-weight:bold;color:#00695c;text-align:right;" id="nbTotalSales">' + formatRupiah(totalSales) + '</div>';
-  html += '</div>';
-  html += '</div>';
-  
-  // ================== FORM KC ==================
-  html += '<div style="background:#fff8e1;border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid #ffe082;">';
-  html += '<h4 style="margin:0 0 12px 0;color:#e65100;">📊 KC</h4>';
-  
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">Km</label>';
-  html += '<input type="number" id="nbKm" value="' + (data.km || 0) + '" placeholder="0" style="flex:1;padding:10px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;text-align:right;" oninput="hitungNotebook()">';
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">Grab</label>';
+  html += '<input type="number" id="nbGrab" value="' + (data.grab || 0) + '" oninput="hitungNotebook()" style="flex:1;padding:5px 8px;border:1.5px solid #e0e4e8;border-radius:4px;font-size:13px;text-align:right;font-weight:600;">';
   html += '</div>';
   
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">Cash</label>';
-  html += '<div style="flex:1;padding:10px;background:#f5f5f5;border-radius:6px;font-size:14px;text-align:right;color:#666;" id="nbCashSync">' + formatRupiah(data.cash || 0) + '</div>';
-  html += '</div>';
-  
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">PL</label>';
-  html += '<input type="number" id="nbPl" value="' + (data.pl || 0) + '" placeholder="0" style="flex:1;padding:10px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;text-align:right;" oninput="hitungNotebook()">';
-  html += '</div>';
-  
-  html += '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:13px;">Belanja</label>';
-  html += '<div style="flex:1;padding:10px;background:#f5f5f5;border-radius:6px;font-size:14px;text-align:right;color:#666;" id="nbBelanjaSync" data-belanja="' + totalBelanja + '">' + formatRupiah(totalBelanja) + '</div>';
-  html += '</div>';
-  html += '<small style="color:#e65100;font-size:11px;">💡 Belanja otomatis dari total Biaya Operasional tanggal ini</small>';
-  
-  html += '<div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:2px solid #ffe082;align-items:center;">';
-  html += '<label style="flex:0 0 80px;font-size:14px;font-weight:bold;color:#e65100;">KC</label>';
-  html += '<div style="flex:1;font-size:20px;font-weight:bold;color:#e65100;text-align:right;" id="nbTotalKc">' + formatRupiah(kc) + '</div>';
+  html += '<div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid #e0e4e8;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;font-weight:bold;color:#00695c;">SALES</label>';
+  html += '<div style="flex:1;font-size:16px;font-weight:bold;color:#00695c;text-align:right;" id="nbTotalSales">' + formatAngka(totalSales) + '</div>';
   html += '</div>';
   html += '</div>';
   
-  // ================== KETERANGAN ==================
-  html += '<div class="form-group" style="margin-bottom:12px;">';
-  html += '<label style="font-size:13px;font-weight:600;color:#455a64;">Keterangan</label>';
-  html += '<input type="text" id="nbKeterangan" value="' + (data.keterangan || '') + '" placeholder="Catatan..." style="width:100%;padding:10px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;box-sizing:border-box;">';
+  // ================== KC (compact) ==================
+  html += '<div style="background:#fff8e1;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid #ffe082;">';
+  html += '<div style="font-size:12px;font-weight:bold;color:#e65100;margin-bottom:6px;">📊 KC</div>';
+  
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">Km</label>';
+  html += '<input type="number" id="nbKm" value="' + (data.km || 0) + '" oninput="hitungNotebook()" style="flex:1;padding:5px 8px;border:1.5px solid #e0e4e8;border-radius:4px;font-size:13px;text-align:right;font-weight:600;">';
+  html += '</div>';
+  
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">Cash</label>';
+  html += '<div style="flex:1;padding:5px 8px;background:#f5f5f5;border-radius:4px;font-size:13px;text-align:right;color:#666;font-weight:600;" id="nbCashSync">' + formatAngka(data.cash || 0) + '</div>';
+  html += '</div>';
+  
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">PL</label>';
+  html += '<input type="number" id="nbPl" value="' + (data.pl || 0) + '" oninput="hitungNotebook()" style="flex:1;padding:5px 8px;border:1.5px solid #e0e4e8;border-radius:4px;font-size:13px;text-align:right;font-weight:600;">';
+  html += '</div>';
+  
+  html += '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;">Belanja</label>';
+  html += '<div style="flex:1;padding:5px 8px;background:#f5f5f5;border-radius:4px;font-size:13px;text-align:right;color:#e65100;font-weight:600;" id="nbBelanjaSync" data-belanja="' + totalBelanja + '">' + formatAngka(totalBelanja) + '</div>';
+  html += '</div>';
+  
+  html += '<div style="font-size:10px;color:#999;margin-bottom:4px;">💡 Belanja otomatis dari Biaya Operasional</div>';
+  
+  html += '<div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid #ffe082;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;font-weight:bold;color:#e65100;">KC</label>';
+  html += '<div style="flex:1;font-size:16px;font-weight:bold;color:#e65100;text-align:right;" id="nbTotalKc">' + formatAngka(kc) + '</div>';
+  html += '</div>';
+  html += '</div>';
+  
+  // ================== KETERANGAN (compact) ==================
+  html += '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">';
+  html += '<label style="flex:0 0 60px;font-size:12px;font-weight:600;color:#455a64;">Note</label>';
+  html += '<input type="text" id="nbKeterangan" value="' + (data.keterangan || '') + '" placeholder="Catatan..." style="flex:1;padding:6px 8px;border:1.5px solid #e0e4e8;border-radius:4px;font-size:12px;">';
   html += '</div>';
   
   // ================== TOMBOL SIMPAN ==================
-  html += '<button class="btn" onclick="simpanNotebook()" style="width:100%;background:#009688;color:white;padding:14px;font-size:15px;font-weight:bold;">💾 Simpan Catatan</button>';
+  html += '<button onclick="simpanNotebook()" style="width:100%;background:#009688;color:white;padding:10px;font-size:13px;font-weight:bold;border:none;border-radius:6px;cursor:pointer;">💾 Simpan</button>';
   
   container.innerHTML = html;
 }
@@ -192,15 +204,15 @@ function hitungNotebook() {
   var pl = parseFloat(document.getElementById('nbPl').value) || 0;
   
   var totalSales = cash + edc + grab;
-  document.getElementById('nbTotalSales').textContent = formatRupiah(totalSales);
+  document.getElementById('nbTotalSales').textContent = formatAngka(totalSales);
   
-  document.getElementById('nbCashSync').textContent = formatRupiah(cash);
+  document.getElementById('nbCashSync').textContent = formatAngka(cash);
   
   var belanjaEl = document.getElementById('nbBelanjaSync');
   var belanja = parseFloat(belanjaEl.getAttribute('data-belanja')) || 0;
   
   var kc = km + cash + pl - belanja;
-  document.getElementById('nbTotalKc').textContent = formatRupiah(kc);
+  document.getElementById('nbTotalKc').textContent = formatAngka(kc);
 }
 
 // ===================== GANTI TANGGAL =====================
@@ -267,12 +279,12 @@ async function renderNotebookHistory() {
   var container = document.getElementById('notebookHistoryContent');
   if (!container) return;
   
-  container.innerHTML = '<p>Memuat...</p>';
+  container.innerHTML = '<p style="text-align:center;color:#999;">Memuat...</p>';
   
   var r = await supabaseClient.from('daily_sales')
     .select('*')
     .order('tanggal', { ascending: false })
-    .limit(60);
+    .limit(30);
   
   var data = r.data || [];
   
@@ -281,39 +293,36 @@ async function renderNotebookHistory() {
     return;
   }
   
-  // Summary total
   var totalSalesAll = data.reduce(function(s, d) { return s + (d.total_sales || 0); }, 0);
   var totalKcAll = data.reduce(function(s, d) { return s + (d.kc || 0); }, 0);
   
   var html = '';
   
-  // Summary card
-  html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
-  html += '<div style="flex:1;background:#e0f2f1;padding:10px;border-radius:8px;text-align:center;">';
-  html += '<small style="font-size:11px;color:#00695c;">Total Sales (60 hari)</small><br>';
-  html += '<strong style="font-size:14px;color:#00695c;">' + formatRupiah(totalSalesAll) + '</strong>';
+  html += '<div style="display:flex;gap:6px;margin-bottom:10px;">';
+  html += '<div style="flex:1;background:#e0f2f1;padding:8px;border-radius:6px;text-align:center;">';
+  html += '<div style="font-size:10px;color:#00695c;">Total Sales</div>';
+  html += '<div style="font-size:13px;font-weight:bold;color:#00695c;">' + formatAngka(totalSalesAll) + '</div>';
   html += '</div>';
-  html += '<div style="flex:1;background:#fff8e1;padding:10px;border-radius:8px;text-align:center;">';
-  html += '<small style="font-size:11px;color:#e65100;">Total KC (60 hari)</small><br>';
-  html += '<strong style="font-size:14px;color:#e65100;">' + formatRupiah(totalKcAll) + '</strong>';
+  html += '<div style="flex:1;background:#fff8e1;padding:8px;border-radius:6px;text-align:center;">';
+  html += '<div style="font-size:10px;color:#e65100;">Total KC</div>';
+  html += '<div style="font-size:13px;font-weight:bold;color:#e65100;">' + formatAngka(totalKcAll) + '</div>';
   html += '</div>';
   html += '</div>';
   
-  // Tabel riwayat
   html += '<div style="overflow-x:auto;">';
-  html += '<table class="user-table" style="font-size:12px;"><thead><tr>';
-  html += '<th>Tanggal</th><th>Cash</th><th>EDC</th><th>Grab</th><th>Sales</th><th>KC</th><th>Aksi</th>';
+  html += '<table class="user-table" style="font-size:11px;width:100%;"><thead><tr>';
+  html += '<th style="padding:6px 4px;">Tanggal</th>';
+  html += '<th style="padding:6px 4px;text-align:right;">Sales</th>';
+  html += '<th style="padding:6px 4px;text-align:right;">KC</th>';
+  html += '<th style="padding:6px 4px;"></th>';
   html += '</tr></thead><tbody>';
   
   data.forEach(function(d) {
     html += '<tr>';
-    html += '<td style="font-size:11px;white-space:nowrap;">' + formatTanggalIndo(d.tanggal) + '</td>';
-    html += '<td style="text-align:right;font-size:11px;">' + (d.cash || 0).toLocaleString('id') + '</td>';
-    html += '<td style="text-align:right;font-size:11px;">' + (d.edc || 0).toLocaleString('id') + '</td>';
-    html += '<td style="text-align:right;font-size:11px;">' + (d.grab || 0).toLocaleString('id') + '</td>';
-    html += '<td style="text-align:right;font-weight:bold;color:#00695c;font-size:11px;">' + (d.total_sales || 0).toLocaleString('id') + '</td>';
-    html += '<td style="text-align:right;font-weight:bold;color:#e65100;font-size:11px;">' + (d.kc || 0).toLocaleString('id') + '</td>';
-    html += '<td><button class="btn-sm" onclick="lihatNotebookTanggal(\'' + d.tanggal + '\')" title="Lihat">👁️</button></td>';
+    html += '<td style="font-size:11px;padding:5px 4px;">' + formatTanggalIndo(d.tanggal) + '</td>';
+    html += '<td style="text-align:right;font-weight:bold;color:#00695c;font-size:11px;padding:5px 4px;">' + formatAngka(d.total_sales || 0) + '</td>';
+    html += '<td style="text-align:right;font-weight:bold;color:#e65100;font-size:11px;padding:5px 4px;">' + formatAngka(d.kc || 0) + '</td>';
+    html += '<td style="padding:5px 4px;"><button onclick="lihatNotebookTanggal(\'' + d.tanggal + '\')" style="background:#009688;color:white;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;">Lihat</button></td>';
     html += '</tr>';
   });
   
@@ -333,12 +342,12 @@ async function lihatNotebookTanggal(tanggal) {
 function bukaNotebookCepat() {
   var modal = document.createElement('div');
   modal.id = 'notebookCepatModal';
-  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:10px;box-sizing:border-box;';
   
-  modal.innerHTML = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:650px;max-height:90vh;overflow-y:auto;">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-    '<h3 style="margin:0;">📓 Notebook Sales</h3>' +
-    '<button class="btn btn-danger btn-sm" onclick="document.getElementById(\'notebookCepatModal\').remove()">✕ Tutup</button>' +
+  modal.innerHTML = '<div style="background:#fff;padding:12px;border-radius:10px;width:100%;max-width:400px;max-height:96vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+    '<h3 style="margin:0;font-size:15px;">📓 Notebook Sales</h3>' +
+    '<button onclick="document.getElementById(\'notebookCepatModal\').remove()" style="background:#e53935;color:white;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600;">✕</button>' +
     '</div>' +
     '<div id="notebookContent"></div>' +
     '</div>';
