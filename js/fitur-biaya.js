@@ -1,4 +1,4 @@
-// ===================== FITUR BIAYA OPERASIONAL - v3 =====================
+// ===================== FITUR BIAYA OPERASIONAL - FINAL v5 =====================
 var currentBiayaFilter = 'hari-ini';
 
 var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM'];
@@ -27,7 +27,7 @@ async function loadKategoriBiaya() {
   return allCats;
 }
 
-// ===================== HELPER: Format tanggal Indonesia =====================
+// ===================== HELPER =====================
 function getLocalDateStr(date) {
   var y = date.getFullYear();
   var m = ('0' + (date.getMonth() + 1)).slice(-2);
@@ -49,6 +49,8 @@ function formatBulanIndo(date) {
 async function muatDaftarBiaya() {
   var container = document.getElementById('biayaContent');
   if (!container) return;
+  
+  var isAdmin = currentUser && currentUser.role === 'admin';
   
   var today = new Date();
   var startDate, endDate;
@@ -73,7 +75,6 @@ async function muatDaftarBiaya() {
   var expenses = r.data || [];
   var total = expenses.reduce(function(sum, e) { return sum + (e.jumlah || 0); }, 0);
   
-  // Hitung total per kategori
   var totalPerKategori = {};
   expenses.forEach(function(e) {
     var kat = e.kategori || 'LAIN-LAIN';
@@ -81,7 +82,6 @@ async function muatDaftarBiaya() {
     totalPerKategori[kat] += (e.jumlah || 0);
   });
   
-  // Label periode
   var periodeLabel = '';
   if (currentBiayaFilter === 'hari-ini') {
     periodeLabel = formatTanggalIndo(today);
@@ -91,10 +91,13 @@ async function muatDaftarBiaya() {
   
   var html = '';
   
-  // Button Tambah Biaya & Kelola Kategori (di atas)
+  // Tombol Tambah Biaya (semua user)
+  // Tombol Kelola Kategori (admin only)
   html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
   html += '<button class="btn" onclick="formTambahBiaya()" style="flex:1;background:#009688;color:white;">➕ Tambah Biaya</button>';
-  html += '<button class="btn btn-sm" onclick="formKelolaKategori()" style="background:#ff9800;color:white;">📁 Kelola Kategori</button>';
+  if (isAdmin) {
+    html += '<button class="btn btn-sm" onclick="formKelolaKategori()" style="background:#ff9800;color:white;">📁 Kelola Kategori</button>';
+  }
   html += '</div>';
   
   // Total keseluruhan
@@ -106,7 +109,7 @@ async function muatDaftarBiaya() {
   if (!expenses.length) {
     html += '<p style="text-align:center;color:#999;padding:20px;">Tidak ada biaya tercatat</p>';
   } else {
-    html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody>';
+    html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th>' + (isAdmin ? '<th>Aksi</th>' : '') + '</tr></thead><tbody>';
     
     expenses.forEach(function(e) {
       var itemDisplay = '';
@@ -128,14 +131,16 @@ async function muatDaftarBiaya() {
       html += '<td><b>' + e.kategori + '</b></td>';
       html += '<td>' + itemDisplay + keteranganDisplay + '</td>';
       html += '<td>Rp ' + (e.jumlah||0).toLocaleString('id') + '</td>';
-      html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')">🗑</button></td>';
+      if (isAdmin) {
+        html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')">🗑</button></td>';
+      }
       html += '</tr>';
     });
     
     html += '</tbody></table>';
   }
   
-  // Summary per kategori dengan label periode
+  // Summary per kategori
   html += '<div style="margin-top:16px;background:#f8fafb;border-radius:8px;padding:12px;border:1px solid #e8ecf0;">';
   html += '<h4 style="margin:0 0 12px 0;color:#00695c;">📊 Total per Kategori - ' + periodeLabel + '</h4>';
   html += '<table style="width:100%;border-collapse:collapse;">';
@@ -155,7 +160,6 @@ async function muatDaftarBiaya() {
       html += '</tr>';
     });
     
-    // Baris total
     html += '<tr style="background:#e0f2f1;font-weight:bold;">';
     html += '<td style="padding:10px 4px;">TOTAL</td>';
     html += '<td style="padding:10px 4px;text-align:right;">Rp ' + total.toLocaleString('id') + '</td>';
@@ -290,13 +294,55 @@ async function simpanBiaya() {
   alert('✅ Biaya dicatat');
 }
 
+// ===================== HAPUS BIAYA (ADMIN ONLY) =====================
 async function hapusBiaya(id) {
+  if (!currentUser || currentUser.role !== 'admin') {
+    alert('❌ Hanya admin yang dapat menghapus biaya');
+    return;
+  }
   if (!confirm('Hapus biaya ini?')) return;
   await supabaseClient.from('expenses').delete().eq('id', id);
   await muatDaftarBiaya();
 }
 
-// ===================== KELOLA KATEGORI =====================
+// ===================== MODAL BIAYA CEPAT =====================
+function bukaBiayaCepat() {
+  var modal = document.createElement('div');
+  modal.id = 'biayaCepatModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  
+  modal.innerHTML = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:700px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+    '<h3 style="margin:0;">📝 Biaya Operasional</h3>' +
+    '<button class="btn btn-danger btn-sm" onclick="document.getElementById(\'biayaCepatModal\').remove()">✕ Tutup</button>' +
+    '</div>' +
+    '<div id="biayaContent" style="flex:1;overflow-y:auto;"></div>' +
+    '</div>';
+  
+  document.body.appendChild(modal);
+  
+  if (typeof muatDaftarBiaya === 'function') {
+    muatDaftarBiaya();
+  }
+}
+
+// ===================== VISIBILITY TOMBOL BIAYA =====================
+function updateBiayaButtonVisibility() {
+  var btn = document.getElementById('btnBiayaCepat');
+  if (!btn) return;
+  
+  var isActive = typeof activeFeatures !== 'undefined' && activeFeatures && activeFeatures.biaya;
+  
+  if (currentUser && isActive) {
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+// ===================== KELOLA KATEGORI (ADMIN ONLY) =====================
 async function formKelolaKategori() {
   if (!currentUser || currentUser.role !== 'admin') {
     alert('Hanya admin yang dapat mengelola kategori');

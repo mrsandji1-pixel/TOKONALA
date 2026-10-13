@@ -19,6 +19,9 @@ async function loadFeatures() {
   if (typeof updatePapanPesanButtonVisibility === 'function') {
     updatePapanPesanButtonVisibility();
   }
+  if (typeof updateBiayaButtonVisibility === 'function') {
+    updateBiayaButtonVisibility();
+  }
 }
 
 function setupFiturPage() {
@@ -31,11 +34,11 @@ function renderFiturCards() {
   
   var features = [
     { key: 'papanpesan', label: 'Papan Pesan', icon: '📢', desc: 'Komunikasi tim & pesan pribadi' },
+    { key: 'biaya', label: 'Biaya Operasional', icon: '📝', desc: 'Catat pengeluaran harian' },
     { key: 'utang', label: 'Customer Utang', icon: '💳', desc: 'Catat utang customer dan pembayaran' },
     { key: 'member', label: 'Customer Member', icon: '⭐', desc: 'Program loyalitas pelanggan' },
     { key: 'shift', label: 'Shift Karyawan', icon: '👥', desc: 'Kelola shift dan komisi' },
     { key: 'supplier', label: 'Supplier', icon: '📦', desc: 'Manajemen pemasok barang' },
-    { key: 'biaya', label: 'Biaya Operasional', icon: '💰', desc: 'Catat pengeluaran harian' },
     { key: 'opname', label: 'Stock Opname', icon: '📋', desc: 'Hitung stok berkala' },
     { key: 'voucher', label: 'Voucher Diskon', icon: '🎟️', desc: 'Buat kode voucher promo' },
     { key: 'tax', label: 'Tax & Service', icon: '🧾', desc: 'Atur pajak dan biaya layanan' },
@@ -75,11 +78,11 @@ function renderFiturCards() {
 function bukaFitur(key) {
   var featureInfo = {
     'papanpesan': { title: '📢 Papan Pesan', icon: '📢' },
+    'biaya': { title: '📝 Biaya Operasional', icon: '📝' },
     'utang': { title: '💳 Customer Utang', icon: '💳' },
     'member': { title: '⭐ Customer Member', icon: '⭐' },
     'shift': { title: '👥 Shift Karyawan', icon: '👥' },
     'supplier': { title: '📦 Supplier', icon: '📦' },
-    'biaya': { title: '💰 Biaya Operasional', icon: '💰' },
     'opname': { title: '📋 Stock Opname', icon: '📋' },
     'voucher': { title: '🎟️ Voucher Diskon', icon: '🎟️' },
     'tax': { title: '🧾 Tax & Service', icon: '🧾' },
@@ -165,11 +168,11 @@ function renderFiturToggles() {
   
   var features = [
     { key: 'papanpesan', label: '📢 Papan Pesan' },
+    { key: 'biaya', label: '📝 Biaya Operasional' },
     { key: 'utang', label: '💳 Customer Utang' },
     { key: 'member', label: '⭐ Customer Member' },
     { key: 'shift', label: '👥 Shift Karyawan' },
     { key: 'supplier', label: '📦 Supplier' },
-    { key: 'biaya', label: '💰 Biaya Operasional' },
     { key: 'opname', label: '📋 Stock Opname' },
     { key: 'voucher', label: '🎟️ Voucher Diskon' },
     { key: 'tax', label: '🧾 Tax & Service' },
@@ -199,7 +202,7 @@ function renderFiturToggles() {
 }
 
 async function simpanFitur() {
-  var keys = ['papanpesan','utang','member','shift','supplier','biaya','opname','voucher','tax','diskon','grosir','pesanan','payment','multiuser','emailstruk','whatsapp','label'];
+  var keys = ['papanpesan','biaya','utang','member','shift','supplier','opname','voucher','tax','diskon','grosir','pesanan','payment','multiuser','emailstruk','whatsapp','label'];
   var features = {};
   
   keys.forEach(function(key) {
@@ -216,6 +219,9 @@ async function simpanFitur() {
   
   if (typeof updatePapanPesanButtonVisibility === 'function') {
     updatePapanPesanButtonVisibility();
+  }
+  if (typeof updateBiayaButtonVisibility === 'function') {
+    updateBiayaButtonVisibility();
   }
   
   alert('✅ Fitur disimpan!');
@@ -268,10 +274,8 @@ async function setupModal_biaya(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
   
-  // Buat container biayaContent
   container.innerHTML = '<div id="biayaContent"></div>';
   
-  // Panggil fungsi dari fitur-biaya.js
   if (typeof muatDaftarBiaya === 'function') {
     await muatDaftarBiaya();
   } else {
@@ -284,16 +288,13 @@ async function setupModal_utang(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
   
-  // Buat container utangContent
   container.innerHTML = '<div id="utangContent"></div>';
   
-  // Panggil fungsi dari fitur-utang.js
   if (typeof muatDaftarUtang === 'function') {
     await muatDaftarUtang();
   } else if (typeof setupUtang === 'function') {
     await setupUtang();
   } else {
-    // Fallback render
     try {
       var r = await supabaseClient.from('customer_debts').select('*').eq('status', 'active').order('created_at', { ascending: false });
       var debts = r.data || [];
@@ -325,16 +326,13 @@ async function setupModal_opname(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
   
-  // Buat container opnameContent
   container.innerHTML = '<div id="opnameContent"></div>';
   
-  // Panggil fungsi dari fitur-opname.js
   if (typeof muatDaftarOpname === 'function') {
     await muatDaftarOpname();
   } else if (typeof setupOpname === 'function') {
     await setupOpname();
   } else {
-    // Fallback render
     try {
       var r = await supabaseClient.from('stock_opname_sessions').select('*').order('created_at', { ascending: false });
       var sessions = r.data || [];
