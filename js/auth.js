@@ -1,4 +1,4 @@
-// ===================== AUTH.JS - FINAL v5 =====================
+// ===================== AUTH.JS - FINAL v6 =====================
 
 var SALT_PREFIX = 'RDNPS_';
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -133,6 +133,12 @@ async function login() {
     if (typeof updatePapanPesanButtonVisibility === 'function') {
       setTimeout(updatePapanPesanButtonVisibility, 1500);
     }
+    if (typeof updateBiayaButtonVisibility === 'function') {
+      setTimeout(updateBiayaButtonVisibility, 1500);
+    }
+    if (typeof updateNotebookButtonVisibility === 'function') {
+      setTimeout(updateNotebookButtonVisibility, 1500);
+    }
 
   } catch(err) {
     console.error('Login error:', err);
@@ -201,6 +207,12 @@ function checkSession() {
     if (typeof updatePapanPesanButtonVisibility === 'function') {
       setTimeout(updatePapanPesanButtonVisibility, 1500);
     }
+    if (typeof updateBiayaButtonVisibility === 'function') {
+      setTimeout(updateBiayaButtonVisibility, 1500);
+    }
+    if (typeof updateNotebookButtonVisibility === 'function') {
+      setTimeout(updateNotebookButtonVisibility, 1500);
+    }
 
     return true;
   }
@@ -245,6 +257,10 @@ function logout() {
   if (badge) badge.style.display = 'none';
   var msgBtn = document.getElementById('btnPapanPesan');
   if (msgBtn) msgBtn.style.display = 'none';
+  var biayaBtn = document.getElementById('btnBiayaCepat');
+  if (biayaBtn) biayaBtn.style.display = 'none';
+  var notebookBtn = document.getElementById('btnNotebookCepat');
+  if (notebookBtn) notebookBtn.style.display = 'none';
   
   document.querySelectorAll('.tab-btn').forEach(function(b){b.style.display='';});
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -360,6 +376,16 @@ function applyRoleRestrictions() {
   // Update visibility tombol papan pesan
   if (typeof updatePapanPesanButtonVisibility === 'function') {
     setTimeout(updatePapanPesanButtonVisibility, 500);
+  }
+  
+  // Update visibility tombol biaya
+  if (typeof updateBiayaButtonVisibility === 'function') {
+    setTimeout(updateBiayaButtonVisibility, 500);
+  }
+  
+  // Update visibility tombol notebook
+  if (typeof updateNotebookButtonVisibility === 'function') {
+    setTimeout(updateNotebookButtonVisibility, 500);
   }
 }
 

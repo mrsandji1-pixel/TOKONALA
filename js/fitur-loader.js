@@ -1,4 +1,4 @@
-// ===================== FITUR LOADER - FINAL =====================
+// ===================== FITUR LOADER - FINAL v2 =====================
 var activeFeatures = {};
 
 async function loadFeatures() {
@@ -22,6 +22,9 @@ async function loadFeatures() {
   if (typeof updateBiayaButtonVisibility === 'function') {
     updateBiayaButtonVisibility();
   }
+  if (typeof updateNotebookButtonVisibility === 'function') {
+    updateNotebookButtonVisibility();
+  }
 }
 
 function setupFiturPage() {
@@ -35,6 +38,7 @@ function renderFiturCards() {
   var features = [
     { key: 'papanpesan', label: 'Papan Pesan', icon: '📢', desc: 'Komunikasi tim & pesan pribadi' },
     { key: 'biaya', label: 'Biaya Operasional', icon: '📝', desc: 'Catat pengeluaran harian' },
+    { key: 'notebook', label: 'Notebook Sales', icon: '📓', desc: 'Catatan Sales & KC harian' },
     { key: 'utang', label: 'Customer Utang', icon: '💳', desc: 'Catat utang customer dan pembayaran' },
     { key: 'member', label: 'Customer Member', icon: '⭐', desc: 'Program loyalitas pelanggan' },
     { key: 'shift', label: 'Shift Karyawan', icon: '👥', desc: 'Kelola shift dan komisi' },
@@ -79,6 +83,7 @@ function bukaFitur(key) {
   var featureInfo = {
     'papanpesan': { title: '📢 Papan Pesan', icon: '📢' },
     'biaya': { title: '📝 Biaya Operasional', icon: '📝' },
+    'notebook': { title: '📓 Notebook Sales', icon: '📓' },
     'utang': { title: '💳 Customer Utang', icon: '💳' },
     'member': { title: '⭐ Customer Member', icon: '⭐' },
     'shift': { title: '👥 Shift Karyawan', icon: '👥' },
@@ -169,6 +174,7 @@ function renderFiturToggles() {
   var features = [
     { key: 'papanpesan', label: '📢 Papan Pesan' },
     { key: 'biaya', label: '📝 Biaya Operasional' },
+    { key: 'notebook', label: '📓 Notebook Sales' },
     { key: 'utang', label: '💳 Customer Utang' },
     { key: 'member', label: '⭐ Customer Member' },
     { key: 'shift', label: '👥 Shift Karyawan' },
@@ -202,7 +208,7 @@ function renderFiturToggles() {
 }
 
 async function simpanFitur() {
-  var keys = ['papanpesan','biaya','utang','member','shift','supplier','opname','voucher','tax','diskon','grosir','pesanan','payment','multiuser','emailstruk','whatsapp','label'];
+  var keys = ['papanpesan','biaya','notebook','utang','member','shift','supplier','opname','voucher','tax','diskon','grosir','pesanan','payment','multiuser','emailstruk','whatsapp','label'];
   var features = {};
   
   keys.forEach(function(key) {
@@ -222,6 +228,9 @@ async function simpanFitur() {
   }
   if (typeof updateBiayaButtonVisibility === 'function') {
     updateBiayaButtonVisibility();
+  }
+  if (typeof updateNotebookButtonVisibility === 'function') {
+    updateNotebookButtonVisibility();
   }
   
   alert('✅ Fitur disimpan!');
@@ -280,6 +289,20 @@ async function setupModal_biaya(containerId) {
     await muatDaftarBiaya();
   } else {
     container.innerHTML = '<p style="color:#999;">Fitur Biaya belum siap.</p>';
+  }
+}
+
+// ===================== SETUP MODAL: NOTEBOOK =====================
+async function setupModal_notebook(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  
+  container.innerHTML = '<div id="notebookContent"></div>';
+  
+  if (typeof setupNotebook === 'function') {
+    await setupNotebook();
+  } else {
+    container.innerHTML = '<p style="color:#999;">Fitur Notebook belum siap.</p>';
   }
 }
 
