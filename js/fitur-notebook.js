@@ -1,10 +1,12 @@
-// ===================== FITUR NOTEBOOK - SALES & KC - FIXED =====================
+// ===================== FITUR NOTEBOOK - SALES & KC - WITH HISTORY =====================
 var currentNotebookDate = null;
+var notebookHistoryMode = false;
 
 // ===================== SETUP =====================
 async function setupNotebook() {
   var today = new Date();
   currentNotebookDate = getLocalDateStr(today);
+  notebookHistoryMode = false;
   await muatNotebook();
 }
 
@@ -19,6 +21,13 @@ function formatRupiah(n) {
   return 'Rp ' + (parseFloat(n) || 0).toLocaleString('id');
 }
 
+function formatTanggalIndo(dateStr) {
+  if (!dateStr) return '-';
+  var bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  var d = new Date(dateStr + 'T00:00:00');
+  return d.getDate() + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
+}
+
 // ===================== LOAD DATA =====================
 async function muatNotebook() {
   var container = document.getElementById('notebookContent');
@@ -26,7 +35,6 @@ async function muatNotebook() {
   
   var tanggal = currentNotebookDate || getLocalDateStr(new Date());
   
-  // FIXED: Use maybeSingle()
   var r = await supabaseClient.from('daily_sales').select('*').eq('tanggal', tanggal).maybeSingle();
   var data = r.data || {
     tanggal: tanggal,
@@ -35,7 +43,6 @@ async function muatNotebook() {
     keterangan: ''
   };
   
-  // Ambil total belanja dari expenses untuk tanggal yang sama
   var belanjaR = await supabaseClient.from('expenses')
     .select('jumlah')
     .eq('tanggal', tanggal);
@@ -49,13 +56,38 @@ async function muatNotebook() {
   
   var html = '';
   
-  // Date picker
-  html += '<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">';
-  html += '<label style="font-size:13px;font-weight:600;color:#455a64;">Tanggal:</label>';
-  html += '<input type="date" id="notebookDate" value="' + tanggal + '" onchange="gantiTanggalNotebook()" style="padding:8px 12px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;">';
+  // ================== TAB SWITCHER ==================
+  html += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
+  html += '<button class="btn btn-sm" onclick="switchNotebookTab(\'input\')" id="nbTabInput" style="flex:1;' + (!notebookHistoryMode ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📝 Input Harian</button>';
+  html += '<button class="btn btn-sm" onclick="switchNotebookTab(\'history\')" id="nbTabHistory" style="flex:1;' + (notebookHistoryMode ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📅 Riwayat</button>';
   html += '</div>';
   
-  // ================== FORM INPUT ==================
+  if (notebookHistoryMode) {
+    // ================== MODE RIWAYAT ==================
+    html += '<div id="notebookHistoryContent"></div>';
+    container.innerHTML = html;
+    await renderNotebookHistory();
+    return;
+  }
+  
+  // ================== MODE INPUT ==================
+  // Date picker dengan navigasi
+  html += '<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">';
+  html += '<button class="btn btn-sm" onclick="prevNotebookDay()" title="Hari sebelumnya">◀</button>';
+  html += '<input type="date" id="notebookDate" value="' + tanggal + '" onchange="gantiTanggalNotebook()" style="padding:8px 12px;border:1.5px solid #e0e4e8;border-radius:6px;font-size:14px;">';
+  html += '<button class="btn btn-sm" onclick="nextNotebookDay()" title="Hari berikutnya">▶</button>';
+  html += '<button class="btn btn-sm" onclick="goToTodayNotebook()" style="background:#ff9800;color:white;">Hari Ini</button>';
+  html += '</div>';
+  
+  // Info jika bukan hari ini
+  var today = getLocalDateStr(new Date());
+  if (tanggal !== today) {
+    html += '<div style="background:#e3f2fd;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;color:#1565c0;">';
+    html += '📅 Melihat data: <b>' + formatTanggalIndo(tanggal) + '</b>';
+    html += '</div>';
+  }
+  
+  // ================== FORM SALES ==================
   html += '<div style="background:#f8fafb;border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid #e8ecf0;">';
   html += '<h4 style="margin:0 0 12px 0;color:#00695c;">💰 SALES</h4>';
   
@@ -123,6 +155,34 @@ async function muatNotebook() {
   container.innerHTML = html;
 }
 
+// ===================== SWITCH TAB =====================
+function switchNotebookTab(tab) {
+  notebookHistoryMode = (tab === 'history');
+  muatNotebook();
+}
+
+// ===================== NAVIGASI TANGGAL =====================
+function prevNotebookDay() {
+  var current = document.getElementById('notebookDate').value;
+  var d = new Date(current + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  currentNotebookDate = getLocalDateStr(d);
+  muatNotebook();
+}
+
+function nextNotebookDay() {
+  var current = document.getElementById('notebookDate').value;
+  var d = new Date(current + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  currentNotebookDate = getLocalDateStr(d);
+  muatNotebook();
+}
+
+function goToTodayNotebook() {
+  currentNotebookDate = getLocalDateStr(new Date());
+  muatNotebook();
+}
+
 // ===================== HITUNG OTOMATIS =====================
 function hitungNotebook() {
   var cash = parseFloat(document.getElementById('nbCash').value) || 0;
@@ -136,7 +196,6 @@ function hitungNotebook() {
   
   document.getElementById('nbCashSync').textContent = formatRupiah(cash);
   
-  // Ambil belanja dari data attribute
   var belanjaEl = document.getElementById('nbBelanjaSync');
   var belanja = parseFloat(belanjaEl.getAttribute('data-belanja')) || 0;
   
@@ -164,7 +223,6 @@ async function simpanNotebook() {
   
   var totalSales = cash + edc + grab;
   
-  // Ambil belanja dari expenses
   var belanjaR = await supabaseClient.from('expenses').select('jumlah').eq('tanggal', tanggal);
   var totalBelanja = (belanjaR.data || []).reduce(function(s, e) { return s + (e.jumlah || 0); }, 0);
   
@@ -186,7 +244,6 @@ async function simpanNotebook() {
   };
   
   try {
-    // FIXED: Use maybeSingle()
     var check = await supabaseClient.from('daily_sales').select('id').eq('tanggal', tanggal).maybeSingle();
     
     if (check.data) {
@@ -205,13 +262,80 @@ async function simpanNotebook() {
   }
 }
 
+// ===================== RIWAYAT =====================
+async function renderNotebookHistory() {
+  var container = document.getElementById('notebookHistoryContent');
+  if (!container) return;
+  
+  container.innerHTML = '<p>Memuat...</p>';
+  
+  var r = await supabaseClient.from('daily_sales')
+    .select('*')
+    .order('tanggal', { ascending: false })
+    .limit(60);
+  
+  var data = r.data || [];
+  
+  if (!data.length) {
+    container.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">Belum ada riwayat</p>';
+    return;
+  }
+  
+  // Summary total
+  var totalSalesAll = data.reduce(function(s, d) { return s + (d.total_sales || 0); }, 0);
+  var totalKcAll = data.reduce(function(s, d) { return s + (d.kc || 0); }, 0);
+  
+  var html = '';
+  
+  // Summary card
+  html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+  html += '<div style="flex:1;background:#e0f2f1;padding:10px;border-radius:8px;text-align:center;">';
+  html += '<small style="font-size:11px;color:#00695c;">Total Sales (60 hari)</small><br>';
+  html += '<strong style="font-size:14px;color:#00695c;">' + formatRupiah(totalSalesAll) + '</strong>';
+  html += '</div>';
+  html += '<div style="flex:1;background:#fff8e1;padding:10px;border-radius:8px;text-align:center;">';
+  html += '<small style="font-size:11px;color:#e65100;">Total KC (60 hari)</small><br>';
+  html += '<strong style="font-size:14px;color:#e65100;">' + formatRupiah(totalKcAll) + '</strong>';
+  html += '</div>';
+  html += '</div>';
+  
+  // Tabel riwayat
+  html += '<div style="overflow-x:auto;">';
+  html += '<table class="user-table" style="font-size:12px;"><thead><tr>';
+  html += '<th>Tanggal</th><th>Cash</th><th>EDC</th><th>Grab</th><th>Sales</th><th>KC</th><th>Aksi</th>';
+  html += '</tr></thead><tbody>';
+  
+  data.forEach(function(d) {
+    html += '<tr>';
+    html += '<td style="font-size:11px;white-space:nowrap;">' + formatTanggalIndo(d.tanggal) + '</td>';
+    html += '<td style="text-align:right;font-size:11px;">' + (d.cash || 0).toLocaleString('id') + '</td>';
+    html += '<td style="text-align:right;font-size:11px;">' + (d.edc || 0).toLocaleString('id') + '</td>';
+    html += '<td style="text-align:right;font-size:11px;">' + (d.grab || 0).toLocaleString('id') + '</td>';
+    html += '<td style="text-align:right;font-weight:bold;color:#00695c;font-size:11px;">' + (d.total_sales || 0).toLocaleString('id') + '</td>';
+    html += '<td style="text-align:right;font-weight:bold;color:#e65100;font-size:11px;">' + (d.kc || 0).toLocaleString('id') + '</td>';
+    html += '<td><button class="btn-sm" onclick="lihatNotebookTanggal(\'' + d.tanggal + '\')" title="Lihat">👁️</button></td>';
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  html += '</div>';
+  
+  container.innerHTML = html;
+}
+
+async function lihatNotebookTanggal(tanggal) {
+  currentNotebookDate = tanggal;
+  notebookHistoryMode = false;
+  await muatNotebook();
+}
+
 // ===================== MODAL CEPAT =====================
 function bukaNotebookCepat() {
   var modal = document.createElement('div');
   modal.id = 'notebookCepatModal';
   modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
   
-  modal.innerHTML = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:600px;max-height:90vh;overflow-y:auto;">' +
+  modal.innerHTML = '<div style="background:#fff;padding:20px;border-radius:12px;width:95%;max-width:650px;max-height:90vh;overflow-y:auto;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
     '<h3 style="margin:0;">📓 Notebook Sales</h3>' +
     '<button class="btn btn-danger btn-sm" onclick="document.getElementById(\'notebookCepatModal\').remove()">✕ Tutup</button>' +
