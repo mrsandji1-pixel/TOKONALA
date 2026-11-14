@@ -1,4 +1,4 @@
-// ===================== FITUR NOTEBOOK - CLEAN v2 =====================
+// ===================== FITUR NOTEBOOK - KM AUTO FROM KC =====================
 var currentNotebookDate = null;
 var notebookHistoryMode = false;
 
@@ -36,6 +36,24 @@ function formatTanggalLengkap(dateStr) {
   return hari[d.getDay()] + ', ' + d.getDate() + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
 }
 
+// ===================== GET KC HARI SEBELUMNYA =====================
+async function getKcHariSebelumnya(tanggal) {
+  var d = new Date(tanggal + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  var tanggalPrev = getLocalDateStr(d);
+  
+  var r = await supabaseClient.from('daily_sales')
+    .select('kc')
+    .eq('tanggal', tanggalPrev)
+    .maybeSingle();
+  
+  if (r.data && r.data.kc !== undefined && r.data.kc !== null) {
+    return { kc: r.data.kc, tanggal: tanggalPrev };
+  }
+  
+  return { kc: 0, tanggal: tanggalPrev };
+}
+
 // ===================== LOAD DATA =====================
 async function muatNotebook() {
   var container = document.getElementById('notebookContent');
@@ -51,16 +69,45 @@ async function muatNotebook() {
     keterangan: ''
   };
   
+  // Ambil belanja dari expenses
   var belanjaR = await supabaseClient.from('expenses')
     .select('jumlah')
     .eq('tanggal', tanggal);
   
   var totalBelanja = (belanjaR.data || []).reduce(function(s, e) { return s + (e.jumlah || 0); }, 0);
-  
   data.belanja = totalBelanja;
   
+  // ================== KM AUTO LOGIC ==================
+  // Cek apakah admin
+  var isAdmin = currentUser && currentUser.role === 'admin';
+  
+  // Ambil KC hari sebelumnya
+  var prevData = await getKcHariSebelumnya(tanggal);
+  var kcSebelumnya = prevData.kc;
+  
+  // Cek apakah user pernah override KM manual
+  // Jika data sudah ada dan km berbeda dari kc sebelumnya, berarti admin pernah override
+  var isManualOverride = false;
+  var kmTersimpan = data.km || 0;
+  
+  if (r.data && kmTersimpan !== kcSebelumnya && kmTersimpan !== 0) {
+    isManualOverride = true;
+  }
+  
+  // Tentukan nilai KM yang akan ditampilkan:
+  // - Jika admin dan ada override manual, pakai nilai tersimpan
+  // - Jika data ada dan km tersimpan berbeda dari kcSebelumnya, pakai km tersimpan (asumsi admin override)
+  // - Selain itu, pakai kcSebelumnya
+  var kmFinal;
+  if (isManualOverride && kmTersimpan !== 0) {
+    kmFinal = kmTersimpan;
+  } else {
+    kmFinal = kcSebelumnya;
+  }
+  
+  // Hitung totalSales dan kc
   var totalSales = (data.cash || 0) + (data.edc || 0) + (data.grab || 0);
-  var kc = (data.km || 0) + (data.cash || 0) + (data.pl || 0) - totalBelanja;
+  var kc = kmFinal + (data.cash || 0) + (data.pl || 0) - totalBelanja;
   
   var isToday = tanggal === getLocalDateStr(new Date());
   
@@ -79,7 +126,7 @@ async function muatNotebook() {
     return;
   }
   
-  // ================== HEADER TANGGAL (SATU BARIS) ==================
+  // ================== HEADER TANGGAL ==================
   html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;background:#e0f2f1;padding:6px;border-radius:6px;">';
   html += '<button onclick="prevNotebookDay()" style="background:white;border:none;font-size:14px;cursor:pointer;padding:4px 10px;border-radius:4px;font-weight:bold;color:#00695c;">◀</button>';
   html += '<div style="flex:1;text-align:center;position:relative;">';
@@ -88,7 +135,6 @@ async function muatNotebook() {
   html += '<button onclick="nextNotebookDay()" style="background:white;border:none;font-size:14px;cursor:pointer;padding:4px 10px;border-radius:4px;font-weight:bold;color:#00695c;">▶</button>';
   html += '</div>';
   
-  // Tombol Hari Ini jika bukan hari ini
   if (!isToday) {
     html += '<div style="text-align:center;margin-bottom:8px;">';
     html += '<button onclick="goToTodayNotebook()" style="padding:3px 12px;font-size:11px;background:#ff9800;color:white;border:none;border-radius:12px;cursor:pointer;font-weight:600;">↩️ Kembali ke Hari Ini</button>';
@@ -124,9 +170,30 @@ async function muatNotebook() {
   html += '<div style="background:#fff8e1;border-radius:8px;padding:8px;margin-bottom:6px;border:1px solid #ffe082;">';
   html += '<div style="font-size:11px;font-weight:bold;color:#e65100;margin-bottom:4px;">📊 KC</div>';
   
+  // KM - Auto atau Manual (admin only)
   html += '<div style="display:flex;gap:4px;margin-bottom:3px;align-items:center;">';
   html += '<label style="flex:0 0 45px;font-size:11px;color:#666;">Km</label>';
-  html += '<input type="number" id="nbKm" value="' + (data.km || 0) + '" oninput="hitungNotebook()" style="flex:1;padding:4px 6px;border:1px solid #e0e4e8;border-radius:4px;font-size:12px;text-align:right;font-weight:600;">';
+  
+  if (isAdmin) {
+    // Admin bisa edit
+    html += '<input type="number" id="nbKm" value="' + kmFinal + '" oninput="hitungNotebook()" style="flex:1;padding:4px 6px;border:1px solid #e0e4e8;border-radius:4px;font-size:12px;text-align:right;font-weight:600;background:#fff;">';
+    if (isManualOverride) {
+      html += '<button onclick="resetKmNotebook()" title="Reset ke KC hari sebelumnya" style="padding:4px 6px;font-size:10px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">↺</button>';
+    }
+  } else {
+    // Non-admin: readonly
+    html += '<div style="flex:1;padding:4px 6px;background:#fff;border-radius:4px;font-size:12px;text-align:right;color:#e65100;font-weight:600;border:1px dashed #e0e0e0;" id="nbKmDisplay" data-km="' + kmFinal + '">' + formatAngka(kmFinal) + '</div>';
+    html += '<input type="hidden" id="nbKm" value="' + kmFinal + '">';
+  }
+  html += '</div>';
+  
+  // Info KM dari KC sebelumnya
+  html += '<div style="font-size:9px;color:#999;margin-bottom:4px;margin-left:49px;">';
+  if (isManualOverride) {
+    html += '✏️ Override manual oleh admin';
+  } else {
+    html += '⚡ Auto dari KC ' + formatTanggalIndo(prevData.tanggal) + ' (' + formatAngka(kcSebelumnya) + ')';
+  }
   html += '</div>';
   
   html += '<div style="display:flex;gap:4px;margin-bottom:3px;align-items:center;">';
@@ -190,12 +257,35 @@ function goToTodayNotebook() {
   muatNotebook();
 }
 
+// ===================== RESET KM (ADMIN ONLY) =====================
+async function resetKmNotebook() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    alert('Hanya admin yang dapat mereset KM');
+    return;
+  }
+  
+  if (!confirm('Reset KM ke nilai KC hari sebelumnya?')) return;
+  
+  var tanggal = currentNotebookDate || getLocalDateStr(new Date());
+  var prevData = await getKcHariSebelumnya(tanggal);
+  
+  var kmEl = document.getElementById('nbKm');
+  if (kmEl) {
+    kmEl.value = prevData.kc;
+    hitungNotebook();
+  }
+}
+
 // ===================== HITUNG OTOMATIS =====================
 function hitungNotebook() {
   var cash = parseFloat(document.getElementById('nbCash').value) || 0;
   var edc = parseFloat(document.getElementById('nbEdc').value) || 0;
   var grab = parseFloat(document.getElementById('nbGrab').value) || 0;
-  var km = parseFloat(document.getElementById('nbKm').value) || 0;
+  
+  // KM bisa dari input atau hidden
+  var kmEl = document.getElementById('nbKm');
+  var km = kmEl ? (parseFloat(kmEl.value) || 0) : 0;
+  
   var pl = parseFloat(document.getElementById('nbPl').value) || 0;
   
   var totalSales = cash + edc + grab;
