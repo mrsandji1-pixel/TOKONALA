@@ -1,4 +1,4 @@
-// ===================== FITUR BIAYA OPERASIONAL - v6 =====================
+// ===================== FITUR BIAYA OPERASIONAL - v7 FIXED =====================
 var currentBiayaFilter = 'hari-ini';
 
 var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM', 'LAUNDRY'];
@@ -27,7 +27,7 @@ async function loadKategoriBiaya() {
   return allCats;
 }
 
-// ===================== HELPER =====================
+// ===================== HELPER (RENAMED TO AVOID CONFLICT) =====================
 function getLocalDateStr(date) {
   var y = date.getFullYear();
   var m = ('0' + (date.getMonth() + 1)).slice(-2);
@@ -35,12 +35,16 @@ function getLocalDateStr(date) {
   return y + '-' + m + '-' + d;
 }
 
-function formatTanggalIndo(date) {
+// Renamed: formatTanggalIndo → formatTanggalBiaya
+function formatTanggalBiaya(date) {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '-';
   var bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   return date.getDate() + ' ' + bulan[date.getMonth()] + ' ' + date.getFullYear();
 }
 
-function formatBulanIndo(date) {
+// Renamed: formatBulanIndo → formatBulanBiaya
+function formatBulanBiaya(date) {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '-';
   var bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   return bulan[date.getMonth()] + ' ' + date.getFullYear();
 }
@@ -84,14 +88,14 @@ async function muatDaftarBiaya() {
   
   var periodeLabel = '';
   if (currentBiayaFilter === 'hari-ini') {
-    periodeLabel = formatTanggalIndo(today);
+    periodeLabel = formatTanggalBiaya(today);
   } else {
-    periodeLabel = formatBulanIndo(today);
+    periodeLabel = formatBulanBiaya(today);
   }
   
   var html = '';
   
-  // Tombol Tambah Biaya (semua user)
+  // Tombol Tambah Biaya
   html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
   html += '<button class="btn" onclick="formTambahBiaya()" style="flex:1;background:#009688;color:white;">➕ Tambah Biaya</button>';
   if (isAdmin) {
@@ -111,10 +115,8 @@ async function muatDaftarBiaya() {
     html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th>' + (isAdmin ? '<th>Aksi</th>' : '') + '</tr></thead><tbody>';
     
     expenses.forEach(function(e) {
-      // Item display
       var itemDisplay = '';
       if (e.items && Array.isArray(e.items) && e.items.length > 0) {
-        // Dari POS: tampilkan ringkasan items
         var itemsSummary = e.items.map(function(it) {
           return it.qty + 'x ' + it.nama;
         }).join(', ');
@@ -132,7 +134,6 @@ async function muatDaftarBiaya() {
         keteranganDisplay = '<br><small style="color:#666;font-size:11px;">' + e.keterangan + '</small>';
       }
       
-      // Badge sumber
       var sumberBadge = '';
       if (e.sumber === 'pos') {
         sumberBadge = ' <span style="background:#009688;color:white;padding:1px 5px;border-radius:3px;font-size:9px;">POS</span>';
@@ -185,7 +186,7 @@ async function muatDaftarBiaya() {
   html += '</table>';
   html += '</div>';
   
-  // Tombol filter di paling bawah
+  // Tombol filter
   html += '<div style="display:flex;gap:8px;margin-top:16px;justify-content:center;">';
   html += '<button class="btn btn-sm" onclick="filterBiaya(\'hari-ini\')" style="' + (currentBiayaFilter === 'hari-ini' ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📅 Hari Ini</button>';
   html += '<button class="btn btn-sm" onclick="filterBiaya(\'bulan-ini\')" style="' + (currentBiayaFilter === 'bulan-ini' ? 'background:#00897b;color:white;' : 'background:#e0e0e0;color:#333;') + '">📆 Bulan Ini</button>';
@@ -310,14 +311,13 @@ async function simpanBiaya() {
   alert('✅ Biaya dicatat');
 }
 
-// ===================== HAPUS BIAYA (ADMIN ONLY + PROTEKSI POS) =====================
+// ===================== HAPUS BIAYA =====================
 async function hapusBiaya(id) {
   if (!currentUser || currentUser.role !== 'admin') {
     alert('❌ Hanya admin yang dapat menghapus biaya');
     return;
   }
   
-  // Cek apakah dari POS
   try {
     var check = await supabaseClient.from('expenses').select('sumber, no_invoice').eq('id', id).maybeSingle();
     
@@ -371,7 +371,7 @@ function updateBiayaButtonVisibility() {
   }
 }
 
-// ===================== KELOLA KATEGORI (ADMIN ONLY) =====================
+// ===================== KELOLA KATEGORI =====================
 async function formKelolaKategori() {
   if (!currentUser || currentUser.role !== 'admin') {
     alert('Hanya admin yang dapat mengelola kategori');
