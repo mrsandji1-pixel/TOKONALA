@@ -170,7 +170,18 @@ async function hapusTransaksi(noInv) {
     }
     await deleteTransaction(noInv);
     try { await supabaseClient.storage.from('invoices').remove([noInv + '.pdf']); } catch(e) {}
-    alert('Transaksi dihapus');
+    
+    // HAPUS BIAYA OPERASIONAL TERKAIT (auto)
+    try {
+      var delExp = await supabaseClient.from('expenses').delete().eq('no_invoice', noInv);
+      if (!delExp.error) {
+        console.log('✅ Biaya operasional terkait dihapus:', noInv);
+      }
+    } catch(e) {
+      console.error('Gagal hapus biaya:', e.message);
+    }
+    
+    alert('✅ Transaksi dihapus (termasuk biaya operasional terkait)');
     muatLaporan();
   } catch (e) { alert('Gagal menghapus: ' + e.message); }
 }

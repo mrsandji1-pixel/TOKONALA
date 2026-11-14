@@ -1,7 +1,7 @@
-// ===================== FITUR BIAYA OPERASIONAL - FINAL v5 =====================
+// ===================== FITUR BIAYA OPERASIONAL - v6 =====================
 var currentBiayaFilter = 'hari-ini';
 
-var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM'];
+var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM', 'LAUNDRY'];
 
 // ===================== SETUP =====================
 async function setupBiaya() {
@@ -92,7 +92,6 @@ async function muatDaftarBiaya() {
   var html = '';
   
   // Tombol Tambah Biaya (semua user)
-  // Tombol Kelola Kategori (admin only)
   html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
   html += '<button class="btn" onclick="formTambahBiaya()" style="flex:1;background:#009688;color:white;">➕ Tambah Biaya</button>';
   if (isAdmin) {
@@ -112,8 +111,15 @@ async function muatDaftarBiaya() {
     html += '<table class="user-table"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Item</th><th>Jumlah</th>' + (isAdmin ? '<th>Aksi</th>' : '') + '</tr></thead><tbody>';
     
     expenses.forEach(function(e) {
+      // Item display
       var itemDisplay = '';
-      if (e.qty && e.unit) {
+      if (e.items && Array.isArray(e.items) && e.items.length > 0) {
+        // Dari POS: tampilkan ringkasan items
+        var itemsSummary = e.items.map(function(it) {
+          return it.qty + 'x ' + it.nama;
+        }).join(', ');
+        itemDisplay = '<span style="font-size:11px;">' + itemsSummary + '</span>';
+      } else if (e.qty && e.unit) {
         itemDisplay = e.qty + ' ' + e.unit;
       } else if (e.qty) {
         itemDisplay = e.qty;
@@ -126,13 +132,22 @@ async function muatDaftarBiaya() {
         keteranganDisplay = '<br><small style="color:#666;font-size:11px;">' + e.keterangan + '</small>';
       }
       
+      // Badge sumber
+      var sumberBadge = '';
+      if (e.sumber === 'pos') {
+        sumberBadge = ' <span style="background:#009688;color:white;padding:1px 5px;border-radius:3px;font-size:9px;">POS</span>';
+      } else {
+        sumberBadge = ' <span style="background:#ff9800;color:white;padding:1px 5px;border-radius:3px;font-size:9px;">MANUAL</span>';
+      }
+      
       html += '<tr>';
       html += '<td style="font-size:11px;">' + e.tanggal + '</td>';
-      html += '<td><b>' + e.kategori + '</b></td>';
+      html += '<td><b>' + e.kategori + '</b>' + sumberBadge + '</td>';
       html += '<td>' + itemDisplay + keteranganDisplay + '</td>';
       html += '<td>Rp ' + (e.jumlah||0).toLocaleString('id') + '</td>';
       if (isAdmin) {
-        html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')">🗑</button></td>';
+        var delTitle = e.sumber === 'pos' ? 'Data dari POS - Hapus via Laporan' : 'Data manual - Bisa dihapus';
+        html += '<td><button class="btn-sm btn-danger" onclick="hapusBiaya(' + e.id + ')" title="' + delTitle + '">🗑</button></td>';
       }
       html += '</tr>';
     });
@@ -281,6 +296,7 @@ async function simpanBiaya() {
     unit: unit,
     jumlah: jumlah,
     tanggal: tanggal,
+    sumber: 'manual',
     created_by: currentUser.username
   });
   
@@ -294,12 +310,25 @@ async function simpanBiaya() {
   alert('✅ Biaya dicatat');
 }
 
-// ===================== HAPUS BIAYA (ADMIN ONLY) =====================
+// ===================== HAPUS BIAYA (ADMIN ONLY + PROTEKSI POS) =====================
 async function hapusBiaya(id) {
   if (!currentUser || currentUser.role !== 'admin') {
     alert('❌ Hanya admin yang dapat menghapus biaya');
     return;
   }
+  
+  // Cek apakah dari POS
+  try {
+    var check = await supabaseClient.from('expenses').select('sumber, no_invoice').eq('id', id).maybeSingle();
+    
+    if (check.data && check.data.sumber === 'pos') {
+      alert('⚠️ Data ini otomatis dari transaksi POS.\n\nInvoice: ' + (check.data.no_invoice || '-') + '\n\nUntuk menghapus, buka:\nLaporan → cari invoice → klik 🗑');
+      return;
+    }
+  } catch(e) {
+    console.log('Check error:', e);
+  }
+  
   if (!confirm('Hapus biaya ini?')) return;
   await supabaseClient.from('expenses').delete().eq('id', id);
   await muatDaftarBiaya();

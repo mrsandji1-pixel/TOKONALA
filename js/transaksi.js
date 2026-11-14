@@ -409,7 +409,8 @@ async function bayarDanCetak() {
     else await insertTransaction(trxData);
     
     if (currentVoucherData) await markVoucherUsed(currentVoucherData.kode, no);
-    
+        // AUTO-CATAT KE BIAYA OPERASIONAL (user internal)
+    await autoCatatBiayaInternal(no, cust, trxData.items, totalFinal, currentUser.username);
     var generatedVoucher = await generateVoucherKode(no, subtotal1);
     var toko = appSettings;
     var lk = parseInt(toko.kertas_lebar) || 80;
@@ -591,3 +592,58 @@ async function hapusPesanan(noPesanan) {
 }
 
 function invalidateSettingsCache() { cachedSettings = null; }
+// ===================== AUTO CATAT KE BIAYA OPERASIONAL =====================
+async function autoCatatBiayaInternal(noInvoice, customer, items, total, username) {
+  try {
+    // Deteksi kategori user internal berdasarkan username
+    var userUpper = (username || '').toUpperCase();
+    var kategoriInternal = null;
+    
+    if (userUpper.indexOf('BAR') !== -1) kategoriInternal = 'BAR';
+    else if (userUpper.indexOf('KITCHEN') !== -1 || userUpper.indexOf('DAPUR') !== -1) kategoriInternal = 'KITCHEN';
+    else if (userUpper.indexOf('LAUNDRY') !== -1) kategoriInternal = 'LAUNDRY';
+    else if (userUpper.indexOf('UMUM') !== -1) kategoriInternal = 'UMUM';
+    
+    // Jika bukan user internal, skip
+    if (!kategoriInternal) {
+      console.log('ℹ️ Bukan user internal, tidak auto-catat biaya');
+      return;
+    }
+    
+    // Susun keterangan dari items
+    var itemsSummary = items.map(function(i) {
+      return i.qty + 'x ' + i.nama;
+    }).join(', ');
+    
+    var keterangan = '[' + noInvoice + '] ' + itemsSummary;
+    if (customer) {
+      keterangan = '[' + noInvoice + '] ' + customer + ' - ' + itemsSummary;
+    }
+    
+    // Hitung total qty item
+    var totalQty = items.reduce(function(s, i) { return s + (i.qty || 0); }, 0);
+    
+    // Simpan ke expenses
+    var result = await supabaseClient.from('expenses').insert({
+      tanggal: new Date().toISOString().slice(0, 10),
+      kategori: kategoriInternal,
+      keterangan: keterangan,
+      jumlah: total,
+      qty: totalQty,
+      unit: 'item',
+      sumber: 'pos',
+      no_invoice: noInvoice,
+      items: items,
+      created_by: username
+    });
+    
+    if (result.error) {
+      console.error('❌ Gagal catat biaya internal:', result.error.message);
+      alert('⚠️ Transaksi berhasil, tapi gagal catat ke Biaya Operasional:\n' + result.error.message);
+    } else {
+      console.log('✅ Biaya internal tercatat:', kategoriInternal, noInvoice, 'Rp', total);
+    }
+  } catch(e) {
+    console.error('❌ Error auto catat biaya:', e.message);
+  }
+}

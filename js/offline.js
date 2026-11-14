@@ -145,6 +145,11 @@ async function syncTx() {
         customer: tx.customer, items: tx.items, total: tx.total,
         bayar: tx.bayar, kembali: tx.kembali, created_by: tx.created_by
       });
+      // AUTO-CATAT BIAYA INTERNAL setelah sync
+      if (typeof autoCatatBiayaInternal === 'function') {
+        await autoCatatBiayaInternal(no, tx.customer, tx.items, tx.total, tx.created_by);
+      }
+      
       await delLocal('tx', tx.id);
       console.log('Synced: ' + no);
     } catch(e) { console.error('Sync err:', e); }
