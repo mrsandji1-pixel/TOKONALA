@@ -110,9 +110,11 @@ async function checkLowStock() {
       .select('*')
       .order('stok');
     
-    // FIXED: Use min_stok if set, otherwise use 0 (not 10)
+    // FIXED: Hanya tampilkan produk dengan min_stok > 0
     const lowStockProducts = (products || []).filter(p => {
-      var minStok = p.min_stok !== undefined && p.min_stok !== null ? p.min_stok : 0;
+      var minStok = p.min_stok !== undefined && p.min_stok !== null ? parseInt(p.min_stok) : 0;
+      // Skip jika min_stok = 0 atau tidak diset
+      if (minStok <= 0) return false;
       return (p.stok || 0) <= minStok;
     });
     
@@ -476,9 +478,11 @@ async function checkLowStockBanner() {
       .select('*')
       .order('stok');
     
-    // FIXED: Use min_stok if set, otherwise use 0
+    // FIXED: Hanya tampilkan produk dengan min_stok > 0
     const lowStockProducts = (products || []).filter(p => {
-      var minStok = p.min_stok !== undefined && p.min_stok !== null ? p.min_stok : 0;
+      var minStok = p.min_stok !== undefined && p.min_stok !== null ? parseInt(p.min_stok) : 0;
+      // Skip jika min_stok = 0 atau tidak diset
+      if (minStok <= 0) return false;
       return (p.stok || 0) <= minStok;
     });
     

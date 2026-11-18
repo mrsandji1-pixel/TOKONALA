@@ -227,8 +227,9 @@ function renderProductTable(products) {
   var html = '';
   for (var i = 0; i < products.length; i++) {
     var p = products[i];
-    var minStok = p.min_stok || 0;
-    var isLowStock = (p.stok || 0) <= minStok;
+    var minStok = p.min_stok !== undefined && p.min_stok !== null ? parseInt(p.min_stok) : 0;
+    // FIXED: Hanya highlight jika min_stok > 0
+    var isLowStock = minStok > 0 && (p.stok || 0) <= minStok;
     var rowBg = isLowStock ? 'background:#fff3e0;' : '';
     var stokStyle = isLowStock ? 'color:#e53935;font-weight:bold;' : 'color:#333;';
     var stokDisplay = (p.stok || 0) + (isLowStock ? ' ⚠️' : '');
