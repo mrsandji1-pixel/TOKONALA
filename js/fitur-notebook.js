@@ -1,4 +1,4 @@
-// ===================== FITUR NOTEBOOK - KM AUTO FROM KC =====================
+// ===================== FITUR NOTEBOOK - FIXED TIMEZONE =====================
 var currentNotebookDate = null;
 var notebookHistoryMode = false;
 
@@ -69,7 +69,7 @@ async function muatNotebook() {
     keterangan: ''
   };
   
-  // Ambil belanja dari expenses
+  // Ambil belanja dari expenses (FIXED: pakai tanggal lokal, bukan UTC)
   var belanjaR = await supabaseClient.from('expenses')
     .select('jumlah')
     .eq('tanggal', tanggal);
@@ -78,15 +78,11 @@ async function muatNotebook() {
   data.belanja = totalBelanja;
   
   // ================== KM AUTO LOGIC ==================
-  // Cek apakah admin
   var isAdmin = currentUser && currentUser.role === 'admin';
   
-  // Ambil KC hari sebelumnya
   var prevData = await getKcHariSebelumnya(tanggal);
   var kcSebelumnya = prevData.kc;
   
-  // Cek apakah user pernah override KM manual
-  // Jika data sudah ada dan km berbeda dari kc sebelumnya, berarti admin pernah override
   var isManualOverride = false;
   var kmTersimpan = data.km || 0;
   
@@ -94,10 +90,6 @@ async function muatNotebook() {
     isManualOverride = true;
   }
   
-  // Tentukan nilai KM yang akan ditampilkan:
-  // - Jika admin dan ada override manual, pakai nilai tersimpan
-  // - Jika data ada dan km tersimpan berbeda dari kcSebelumnya, pakai km tersimpan (asumsi admin override)
-  // - Selain itu, pakai kcSebelumnya
   var kmFinal;
   if (isManualOverride && kmTersimpan !== 0) {
     kmFinal = kmTersimpan;
@@ -105,7 +97,6 @@ async function muatNotebook() {
     kmFinal = kcSebelumnya;
   }
   
-  // Hitung totalSales dan kc
   var totalSales = (data.cash || 0) + (data.edc || 0) + (data.grab || 0);
   var kc = kmFinal + (data.cash || 0) + (data.pl || 0) - totalBelanja;
   
@@ -170,24 +161,20 @@ async function muatNotebook() {
   html += '<div style="background:#fff8e1;border-radius:8px;padding:8px;margin-bottom:6px;border:1px solid #ffe082;">';
   html += '<div style="font-size:11px;font-weight:bold;color:#e65100;margin-bottom:4px;">📊 KC</div>';
   
-  // KM - Auto atau Manual (admin only)
   html += '<div style="display:flex;gap:4px;margin-bottom:3px;align-items:center;">';
   html += '<label style="flex:0 0 45px;font-size:11px;color:#666;">Km</label>';
   
   if (isAdmin) {
-    // Admin bisa edit
     html += '<input type="number" id="nbKm" value="' + kmFinal + '" oninput="hitungNotebook()" style="flex:1;padding:4px 6px;border:1px solid #e0e4e8;border-radius:4px;font-size:12px;text-align:right;font-weight:600;background:#fff;">';
     if (isManualOverride) {
       html += '<button onclick="resetKmNotebook()" title="Reset ke KC hari sebelumnya" style="padding:4px 6px;font-size:10px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">↺</button>';
     }
   } else {
-    // Non-admin: readonly
     html += '<div style="flex:1;padding:4px 6px;background:#fff;border-radius:4px;font-size:12px;text-align:right;color:#e65100;font-weight:600;border:1px dashed #e0e0e0;" id="nbKmDisplay" data-km="' + kmFinal + '">' + formatAngka(kmFinal) + '</div>';
     html += '<input type="hidden" id="nbKm" value="' + kmFinal + '">';
   }
   html += '</div>';
   
-  // Info KM dari KC sebelumnya
   html += '<div style="font-size:9px;color:#999;margin-bottom:4px;margin-left:49px;">';
   if (isManualOverride) {
     html += '✏️ Override manual oleh admin';
@@ -257,7 +244,7 @@ function goToTodayNotebook() {
   muatNotebook();
 }
 
-// ===================== RESET KM (ADMIN ONLY) =====================
+// ===================== RESET KM =====================
 async function resetKmNotebook() {
   if (!currentUser || currentUser.role !== 'admin') {
     alert('Hanya admin yang dapat mereset KM');
@@ -282,7 +269,6 @@ function hitungNotebook() {
   var edc = parseFloat(document.getElementById('nbEdc').value) || 0;
   var grab = parseFloat(document.getElementById('nbGrab').value) || 0;
   
-  // KM bisa dari input atau hidden
   var kmEl = document.getElementById('nbKm');
   var km = kmEl ? (parseFloat(kmEl.value) || 0) : 0;
   
@@ -308,7 +294,7 @@ async function gantiTanggalNotebook() {
 
 // ===================== SIMPAN =====================
 async function simpanNotebook() {
-  var tanggal = currentNotebookDate || document.getElementById('notebookDate').value;
+  var tanggal = currentNotebookDate || document.getElementById('notebookDate').value || getLocalDateStr(new Date());
   var cash = parseFloat(document.getElementById('nbCash').value) || 0;
   var edc = parseFloat(document.getElementById('nbEdc').value) || 0;
   var grab = parseFloat(document.getElementById('nbGrab').value) || 0;
@@ -320,6 +306,7 @@ async function simpanNotebook() {
   
   var totalSales = cash + edc + grab;
   
+  // Ambil belanja dari expenses (FIXED: pakai tanggal lokal)
   var belanjaR = await supabaseClient.from('expenses').select('jumlah').eq('tanggal', tanggal);
   var totalBelanja = (belanjaR.data || []).reduce(function(s, e) { return s + (e.jumlah || 0); }, 0);
   

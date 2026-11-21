@@ -623,9 +623,15 @@ async function autoCatatBiayaInternal(noInvoice, customer, items, total, usernam
     // Hitung total qty item
     var totalQty = items.reduce(function(s, i) { return s + (i.qty || 0); }, 0);
     
+       // FIXED: Gunakan tanggal lokal (WIB) bukan UTC
+    var now = new Date();
+    var localDate = now.getFullYear() + '-' + 
+      ('0' + (now.getMonth() + 1)).slice(-2) + '-' + 
+      ('0' + now.getDate()).slice(-2);
+    
     // Simpan ke expenses
     var result = await supabaseClient.from('expenses').insert({
-      tanggal: new Date().toISOString().slice(0, 10),
+      tanggal: localDate,
       kategori: kategoriInternal,
       keterangan: keterangan,
       jumlah: total,

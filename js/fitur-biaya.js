@@ -1,4 +1,4 @@
-// ===================== FITUR BIAYA OPERASIONAL - v7 FIXED =====================
+// ===================== FITUR BIAYA OPERASIONAL - v8 FIXED =====================
 var currentBiayaFilter = 'hari-ini';
 
 var DEFAULT_CATEGORIES = ['BAR', 'KITCHEN', 'UMUM', 'LAUNDRY'];
@@ -27,7 +27,7 @@ async function loadKategoriBiaya() {
   return allCats;
 }
 
-// ===================== HELPER (RENAMED TO AVOID CONFLICT) =====================
+// ===================== HELPER =====================
 function getLocalDateStr(date) {
   var y = date.getFullYear();
   var m = ('0' + (date.getMonth() + 1)).slice(-2);
@@ -35,14 +35,13 @@ function getLocalDateStr(date) {
   return y + '-' + m + '-' + d;
 }
 
-// Renamed: formatTanggalIndo → formatTanggalBiaya
+// Renamed to avoid conflict with fitur-notebook.js
 function formatTanggalBiaya(date) {
   if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '-';
   var bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   return date.getDate() + ' ' + bulan[date.getMonth()] + ' ' + date.getFullYear();
 }
 
-// Renamed: formatBulanIndo → formatBulanBiaya
 function formatBulanBiaya(date) {
   if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '-';
   var bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
