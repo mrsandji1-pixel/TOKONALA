@@ -329,8 +329,17 @@ async function cariAtauTambahProduk() {
   }
   
   if (canEdit) {
-    var namaInput = document.getElementById('prodNama');
-    if (namaInput) namaInput.focus();
+    // FIXED: Fokus ke field stok karena paling sering diubah
+    // Delay 150ms agar form sudah selesai render
+    setTimeout(function() {
+      var stokInput = document.getElementById('perubahanStok');
+      if (stokInput) {
+        stokInput.focus();
+        stokInput.select();
+        // Scroll ke posisi field stok (tengah layar)
+        stokInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
   } else {
     ['prodNama','prodKategori','prodKeterangan','prodLokasi','prodHargaBeli','prodHargaJual','prodDiskonPersen','prodDiskonMinQty','prodMinStok','perubahanStok'].forEach(function(id) {
       var el = document.getElementById(id);
