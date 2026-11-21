@@ -1,8 +1,8 @@
-// ===================== LAPORAN.JS - FIXED VERSION =====================
+// ===================== LAPORAN.JS - FIXED TIMEZONE =====================
 let chartInstance = null;
 let topProductsChart = null;
 
-// FIXED: Use local date instead of UTC
+// ===================== HELPER: Tanggal Lokal =====================
 function getLocalDateString(date) {
   var d = date || new Date();
   var year = d.getFullYear();
@@ -11,6 +11,36 @@ function getLocalDateString(date) {
   return year + '-' + month + '-' + day;
 }
 
+// ===================== QUERY TRANSAKSI DENGAN TIMEZONE WIB =====================
+async function getTransactionsByLocalDate(startDate, endDate) {
+  // startDate & endDate dalam format 'YYYY-MM-DD' (WIB / UTC+7)
+  // Convert ke UTC: WIB 00:00 = UTC 17:00 hari sebelumnya
+  
+  var start = new Date(startDate + 'T00:00:00+07:00');
+  var end = new Date(endDate + 'T23:59:59+07:00');
+  
+  var startISO = start.toISOString();
+  var endISO = end.toISOString();
+  
+  console.log('Filter WIB:', startDate, 's/d', endDate);
+  console.log('Filter UTC:', startISO, 's/d', endISO);
+  
+  var result = await supabaseClient
+    .from('transactions')
+    .select('*')
+    .gte('tanggal', startISO)
+    .lte('tanggal', endISO)
+    .order('tanggal', { ascending: false });
+  
+  if (result.error) {
+    console.error('Error query transaksi:', result.error);
+    return [];
+  }
+  
+  return result.data || [];
+}
+
+// ===================== SET DEFAULT DATE FILTER =====================
 function setDefaultDateFilter() {
   var t = getLocalDateString();
   var awal = document.getElementById('tglAwal');
@@ -19,7 +49,10 @@ function setDefaultDateFilter() {
   if (akhir) akhir.value = t;
 }
 
-function filterToday() { setDefaultDateFilter(); muatLaporan(); }
+function filterToday() { 
+  setDefaultDateFilter(); 
+  muatLaporan(); 
+}
 
 function filterThisWeek() {
   var n = new Date();
@@ -54,6 +87,7 @@ function filterYTD() {
   muatLaporan();
 }
 
+// ===================== MUAT LAPORAN (FIXED TIMEZONE) =====================
 async function muatLaporan() {
   var awalEl = document.getElementById('tglAwal');
   var akhirEl = document.getElementById('tglAkhir');
@@ -63,13 +97,15 @@ async function muatLaporan() {
   var b = akhirEl.value;
   if (!a || !b) return;
 
-  var all = await getAllTransactions(a + 'T00:00:00', b + 'T23:59:59');
+  // FIXED: Gunakan WIB timezone
+  var all = await getTransactionsByLocalDate(a, b);
+  
   var tbody = document.querySelector('#reportTable tbody');
   if (!tbody) return;
   
   tbody.innerHTML = '';
   if (!all.length) {
-    tbody.innerHTML = '<tr><td colspan="5">Tidak ada</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Tidak ada transaksi di periode ini</td></tr>';
   } else {
     all.forEach(t => {
       const row = tbody.insertRow();
@@ -87,7 +123,16 @@ async function muatLaporan() {
         actions += ' <button class="btn-sm btn-danger" onclick="hapusTransaksi(\'' + t.no_invoice + '\')">🗑</button>';
       }
       
-      row.innerHTML = '<td>' + t.no_invoice + '</td><td>' + new Date(t.tanggal).toLocaleDateString('id-ID') + '</td><td>' + (t.customer || '-') + '</td><td>Rp' + (t.total || 0).toLocaleString('id') + '</td><td>' + actions + '</td>';
+      // Tampilkan waktu lokal (WIB)
+      var tanggalLokal = new Date(t.tanggal).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      row.innerHTML = '<td>' + t.no_invoice + '</td><td>' + tanggalLokal + '</td><td>' + (t.customer || '-') + '</td><td>Rp' + (t.total || 0).toLocaleString('id') + '</td><td>' + actions + '</td>';
     });
   }
   
@@ -102,7 +147,7 @@ async function muatLaporan() {
   checkLowStock();
 }
 
-// ========== LOW STOCK CHECK ==========
+// ========== LOW STOCK CHECK (FIXED: min_stok > 0 only) ==========
 async function checkLowStock() {
   try {
     const { data: products } = await supabaseClient
@@ -113,7 +158,6 @@ async function checkLowStock() {
     // FIXED: Hanya tampilkan produk dengan min_stok > 0
     const lowStockProducts = (products || []).filter(p => {
       var minStok = p.min_stok !== undefined && p.min_stok !== null ? parseInt(p.min_stok) : 0;
-      // Skip jika min_stok = 0 atau tidak diset
       if (minStok <= 0) return false;
       return (p.stok || 0) <= minStok;
     });
@@ -296,7 +340,9 @@ function renderChart(trans, mode, start, end) {
       daily[getLocalDateString(d)] = 0; 
     }
     trans.forEach(t => { 
-      const k = t.tanggal.slice(0, 10); 
+      // FIXED: Convert UTC ke WIB untuk chart
+      var wibDate = new Date(new Date(t.tanggal).getTime() + 7 * 60 * 60 * 1000);
+      const k = wibDate.toISOString().slice(0, 10); 
       if (daily[k] !== undefined) daily[k] += (t.total || 0); 
     });
     const keys = Object.keys(daily).sort();
@@ -350,9 +396,7 @@ function exportCSV() {
 }
 
 // ===================== SEND EMAIL =====================
-// FIXED: Gunakan Supabase Edge Function atau backend yang tersedia
 async function sendEmailResend(to, subject, message) {
-  // FIXED: Coba gunakan Supabase Edge Function jika tersedia
   try {
     const { data, error } = await supabaseClient.functions.invoke('send-email', {
       body: { to, subject, message }
@@ -362,7 +406,7 @@ async function sendEmailResend(to, subject, message) {
     return data;
   } catch (e) {
     console.error('Edge Function error:', e);
-    throw new Error('Email service tidak tersedia. Silakan konfigurasi Supabase Edge Function untuk mengirim email.');
+    throw new Error('Email service tidak tersedia.');
   }
 }
 
@@ -372,7 +416,10 @@ async function emailLaporanHarian() {
   const today = new Date();
   const tanggal = getLocalDateString(today);
   const tanggalFormat = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const transactions = await getAllTransactions(tanggal + 'T00:00:00', tanggal + 'T23:59:59');
+  
+  // FIXED: Gunakan timezone WIB
+  const transactions = await getTransactionsByLocalDate(tanggal, tanggal);
+  
   const totalTransaksi = transactions.length;
   const totalPendapatan = transactions.reduce((sum, t) => sum + (t.total || 0), 0);
   const productSales = {};
@@ -394,7 +441,10 @@ async function emailLaporanPeriode() {
   const tglAwal = document.getElementById('tglAwal').value;
   const tglAkhir = document.getElementById('tglAkhir').value;
   if (!tglAwal || !tglAkhir) { alert('Pilih tanggal terlebih dahulu.'); return; }
-  const transactions = await getAllTransactions(tglAwal + 'T00:00:00', tglAkhir + 'T23:59:59');
+  
+  // FIXED: Gunakan timezone WIB
+  const transactions = await getTransactionsByLocalDate(tglAwal, tglAkhir);
+  
   const totalTransaksi = transactions.length;
   const totalPendapatan = transactions.reduce((sum, t) => sum + (t.total || 0), 0);
   const productSales = {};
@@ -414,7 +464,10 @@ async function kirimEmailLaporan(settings) {
   const today = new Date();
   const tanggal = getLocalDateString(today);
   const tanggalFormat = today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const transactions = await getAllTransactions(tanggal + 'T00:00:00', tanggal + 'T23:59:59');
+  
+  // FIXED: Gunakan timezone WIB
+  const transactions = await getTransactionsByLocalDate(tanggal, tanggal);
+  
   const totalTransaksi = transactions.length;
   const totalPendapatan = transactions.reduce((sum, t) => sum + (t.total || 0), 0);
   const productSales = {};
@@ -470,7 +523,7 @@ function getWeekNumber(d) {
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
-// ========== LOW STOCK BANNER FOR TRANSAKSI PAGE ==========
+// ========== LOW STOCK BANNER (FIXED: min_stok > 0 only) ==========
 async function checkLowStockBanner() {
   try {
     const { data: products } = await supabaseClient
@@ -481,7 +534,6 @@ async function checkLowStockBanner() {
     // FIXED: Hanya tampilkan produk dengan min_stok > 0
     const lowStockProducts = (products || []).filter(p => {
       var minStok = p.min_stok !== undefined && p.min_stok !== null ? parseInt(p.min_stok) : 0;
-      // Skip jika min_stok = 0 atau tidak diset
       if (minStok <= 0) return false;
       return (p.stok || 0) <= minStok;
     });
